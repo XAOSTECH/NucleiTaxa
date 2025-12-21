@@ -13,7 +13,7 @@ plotly==6.5.0
 
 # Jupyter environment
 jupyter==1.1.1
-notebook==7.5.0
+notebook==7.5.1
 ipython==9.8.0
 
 # R integration
