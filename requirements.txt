@@ -2,7 +2,7 @@
 # Bioinformatics and data analysis packages
 
 # Core scientific computing
-numpy==2.3.5
+numpy==2.4.0
 scipy==1.16.3
 pandas==2.3.3
 
