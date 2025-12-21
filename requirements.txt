@@ -1,0 +1,29 @@
+# Python dependencies for GAPMananas - 23S Plastid rRNA Amplicon Analysis
+# Bioinformatics and data analysis packages
+
+# Core scientific computing
+numpy==2.3.5
+scipy==1.16.3
+pandas==2.3.3
+
+# Visualization
+matplotlib==3.10.8
+seaborn==0.13.2
+plotly==6.5.0
+
+# Jupyter environment
+jupyter==1.1.1
+notebook==7.5.0
+ipython==9.8.0
+
+# R integration
+
+# NOTE: rpy2 requires a working R installation to build. We install rpy2 inside
+# the devcontainer (post-create) where R is available. Keep rpy2 out of the
+# top-level requirements so CI dependency resolution doesn't need R.
+
+# Bioinformatics
+biopython==1.86
+
+# Machine learning (optional, for future analyses)
+scikit-learn==1.8.0

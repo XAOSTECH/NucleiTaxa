@@ -1,0 +1,56 @@
+name: "CodeQL Analysis + R lint"
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: '39 6 * * 6'
+
+jobs:
+  # CodeQL analysis for supported languages
+  analyze:
+    name: CodeQL Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Keep C/C++ if your repo contains native code
+          - language: c-cpp
+            build-mode: autobuild
+          # JavaScript / TypeScript - common for web frontends
+          - language: javascript-typescript
+            build-mode: none
+          # Python - run CodeQL for python sources
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          # matrix.language is one of the languages above
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # Use the canonical query set for security and quality
+          queries: security-and-quality
+
+      - if: matrix.build-mode == 'manual'
+        shell: bash
+        run: |
+          echo 'Manual build required'
+          exit 1
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"

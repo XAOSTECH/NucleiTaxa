@@ -1,0 +1,12 @@
+# .github/codeql/custom-queries.yml
+- name: Check for hardcoded paths
+  pattern: 'C:/Users/.*'
+  severity: warning
+  
+- name: Database credential exposure
+  pattern: '(password|api[_-]?key|token)\s*=\s*["\'][^"\']+["\']'
+  severity: error
+  
+- name: Unsafe file operations
+  pattern: 'system\(.*\$'
+  severity: high
