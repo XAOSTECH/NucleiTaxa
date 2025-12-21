@@ -1,0 +1,89 @@
+name: "CodeQL Analysis + R lint"
+
+on:
+  schedule:
+    - cron: '0 6 1 * *' # monthly (day 1 at 06:00 UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: Perform CodeQL analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL using repo config
+        uses: github/codeql-action/init@v4
+        with:
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Autobuild (if applicable)
+        uses: github/codeql-action/autobuild@v4
+        continue-on-error: true
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+
+  r-lint:
+    name: R lint and optional checks
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: codeql
+    if: always()
+    env:
+      # workspace-local user library so we can cache it between runs
+      R_LIBS_USER: ${{ github.workspace }}/.cache/R/library
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Restore R library cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-lib-${{ hashFiles('**/DESCRIPTION','**/renv.lock','**/*.R') }}
+          restore-keys: |
+            ${{ runner.os }}-r-lib-
+
+      - name: Setup R (r-lib action)
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'
+
+      - name: Ensure user R library exists and install lintr
+        run: |
+          mkdir -p "${R_LIBS_USER}"
+          Rscript -e "if(!dir.exists(Sys.getenv('R_LIBS_USER'))) dir.create(Sys.getenv('R_LIBS_USER'), recursive=TRUE)"
+          Rscript -e "install.packages('lintr', repos='https://cloud.r-project.org/', lib=Sys.getenv('R_LIBS_USER'))"
+
+      - name: Run lintr across R files
+        run: |
+          Rscript -e "lintr::lint_dir('.')" || true
+
+      - name: Run R CMD check (if this is an R package)
+        run: |
+          if [ -f DESCRIPTION ]; then
+            R CMD check . --no-vignettes || true
+          else
+            echo 'No DESCRIPTION found; skipping R CMD check'
+          fi
+
+      - name: Save R library to cache
+        if: always()
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-lib-${{ hashFiles('**/DESCRIPTION','**/renv.lock','**/*.R') }}
+          restore-keys: |
+            ${{ runner.os }}-r-lib-

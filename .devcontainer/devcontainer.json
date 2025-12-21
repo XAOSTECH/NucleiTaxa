@@ -1,0 +1,54 @@
+{
+    "name": "GAPMananas - 23S Plastid rRNA Amplicon Analysis",
+    "image": "rocker/r-ver:4.3.0",
+    "remoteUser": "rstudio",
+    "features": {
+      "ghcr.io/devcontainers/features/common-utils:2": {
+        "installZsh": true,
+        "installOhMyZsh": true,
+        "upgradePackages": true,
+        "username": "rstudio",
+        "uid": "1000",
+        "gid": "1000"
+      },
+      "ghcr.io/devcontainers/features/git:1": {},
+      "ghcr.io/devcontainers/features/python:1": {
+        "version": "3.11"
+      }
+    },
+    "mounts": [
+      "source=/run/user/1000/podman/podman.sock,target=/var/run/docker.sock,type=bind"
+    ],
+    "containerEnv": {
+      "DOCKER_HOST": "unix:///var/run/docker.sock"
+    },
+    "forwardPorts": [8888, 8787],
+    "portsAttributes": {
+      "8888": {
+        "label": "Jupyter Notebook",
+        "onAutoForward": "notify"
+      },
+      "8787": {
+        "label": "RStudio Server",
+        "onAutoForward": "notify"
+      }
+    },
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "REditorSupport.r",
+          "ms-python.python",
+          "ms-toolsai.jupyter",
+          "quarto.quarto",
+          "rdmpage.r-snippets"
+        ],
+        "settings": {
+          "r.rterm.linux": "/usr/local/bin/R",
+          "r.lsp.path": "/usr/local/bin/R",
+          "python.defaultInterpreterPath": "/usr/local/bin/python3"
+        }
+      }
+    }
+  }
+  

@@ -1,0 +1,56 @@
+# Dependabot configuration for GAPMananas project
+# Monitors and updates Docker images, Python packages, and GitHub Actions
+
+version: 2
+updates:
+
+  # Update Python dependencies in requirements files
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      timezone: "UTC"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+      - "automerge"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+    versioning-strategy: "increase-if-necessary"
+    groups:
+      data-science:
+        patterns:
+          - "numpy"
+          - "pandas"
+          - "scipy"
+          - "matplotlib"
+          - "seaborn"
+          - "plotly"
+      bioinformatics:
+        patterns:
+          - "biopython"
+          - "rpy2"
+      jupyter:
+        patterns:
+          - "jupyter*"
+          - "notebook"
+          - "ipython"
+  # Keep GitHub Actions workflow action versions up to date (including setup-python)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automerge"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
