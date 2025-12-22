@@ -1,0 +1,53 @@
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+# Base R environment with CUDA support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    r-base \
+    r-base-dev \
+    python3.12 \
+    python3-pip \
+    git \
+    build-essential \
+    autoconf \
+    automake \
+    openjdk-11-jre \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CUDA-aware bioinformatics tools
+# VSEARCH with CUDA support
+RUN cd /tmp && \
+    git clone https://github.com/torognes/vsearch.git && \
+    cd vsearch && \
+    ./autogen.sh && \
+    ./configure --with-cuda && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && rm -rf vsearch
+
+# DADA2 for R (CPU-optimized, CUDA kernels coming)
+RUN Rscript -e "install.packages('BiocManager'); BiocManager::install(c('dada2', 'phyloseq'))"
+
+# FastTree (phylogenetic inference)
+RUN apt-get update && apt-get install -y fasttree && rm -rf /var/lib/apt/lists/*
+
+# Krona interactive visualization
+RUN cd /tmp && \
+    git clone https://github.com/marbl/Krona.git && \
+    cd Krona/KronaTools && \
+    ./install.pl --prefix /usr/local && \
+    cd / && rm -rf /tmp/Krona
+
+# RDP Classifier (taxonomy assignment)
+RUN apt-get update && apt-get install -y default-jre && rm -rf /var/lib/apt/lists/*
+
+# Setup working directory
+WORKDIR /workspace
+
+# Verify CUDA
+RUN nvidia-smi && \
+    nvcc --version && \
+    vsearch --version
+
+# Default shell
+ENV SHELL=/bin/bash
+CMD ["/bin/bash"]
