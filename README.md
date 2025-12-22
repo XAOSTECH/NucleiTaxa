@@ -8,18 +8,46 @@
 
 ## 🚀 Quick Start (5 Minutes)
 
-### 1. Install Dependencies
+### Option A: Using Dev Container (Recommended)
+
+This repository includes a preconfigured dev container with R 4.4.1, Python 3.12, and all build tools.
+
 ```bash
-sudo apt update && sudo apt install -y r-base vsearch fasttree kronatools
+# 1. Open in VS Code with Dev Containers extension
+code .
+
+# 2. Press Cmd+Shift+P → "Dev Containers: Reopen in Container"
+# (Container rebuilds automatically with all dependencies)
+
+# 3. Inside container, install R packages only:
+Rscript -e "install.packages('BiocManager'); BiocManager::install('dada2')"
+
+# 4. Install Krona (if not pre-installed)
+cd /tmp && git clone https://github.com/marbl/Krona.git
+cd Krona/KronaTools && ./install.pl --prefix /usr/local
+```
+
+### Option B: Host Installation
+
+If not using the container, install dependencies manually:
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install -y r-base vsearch fasttree openjdk-11-jre git
+
+# Krona (from source)
+cd /tmp && git clone https://github.com/marbl/Krona.git
+cd Krona/KronaTools && ./install.pl --prefix /usr/local
 
 # DADA2 (R package)
 Rscript -e "install.packages('BiocManager'); BiocManager::install('dada2')"
 
-# RDP Classifier
-sudo apt install rdp-classifier
+# RDP Classifier (manual download or apt if available)
+# See docs/GETTING_STARTED.md for detailed setup
 ```
 
-### 2. Run Pipeline
+### Run Pipeline
+
 ```bash
 ./bin/nucleitaxa \
     --forward sample_R1.fastq.gz \
@@ -27,7 +55,7 @@ sudo apt install rdp-classifier
     --output results
 ```
 
-### 3. View Results
+### View Results
 ```bash
 # Interactive taxonomy visualization
 open results/06-viz/taxa_krona.html
@@ -66,6 +94,8 @@ Publication-Ready Tables + Interactive Visualization
 
 ```
 NucleiTaxa/
+├── .devcontainer/
+│   └── devcontainer.json    # VS Code dev container (R 4.4.1, Python 3.12)
 ├── bin/
 │   └── nucleitaxa              # Main CLI orchestrator
 ├── pipeline/
@@ -312,7 +342,7 @@ If you use NucleiTaxa in your research, please cite:
 
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) file
+GNU General Public License v3.0 (GPL-3.0) - See [LICENSE](LICENSE) file
 
 ---
 
