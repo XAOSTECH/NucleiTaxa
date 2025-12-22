@@ -1,8 +1,8 @@
 # NucleiTaxa: Bash-Native Amplicon Pipeline
 
-**Production-ready 16S/18S/ITS amplicon analysis** with 2025 bioinformatics best practices. Zero pip/conda dependencies. Pure bash orchestration with real-time analytics.
+**(Not yet) Production-ready 16S/18S/ITS amplicon analysis** with 2025 bioinformatics best practices. Zero pip/conda dependencies. Pure bash orchestration with real-time analytics.
 
-![Status](https://img.shields.io/badge/status-production-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Language](https://img.shields.io/badge/language-bash-green)
+![Status](https://img.shields.io/badge/status-experimental-orange) ![License](https://img.shields.io/badge/license-GPL3-blue) ![Language](https://img.shields.io/badge/language-bash-green)
 
 ---
 
