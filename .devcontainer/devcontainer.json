@@ -1,19 +1,17 @@
 {
-    "name": "GAPMananas - 23S Plastid rRNA Amplicon Analysis",
-    "image": "rocker/r-ver:4.3.0",
+    "name": "NucleiTaxa - Bash Amplicon Pipeline",
+    "image": "docker.io/rocker/r-ver:4.4.1",
     "remoteUser": "rstudio",
     "features": {
       "ghcr.io/devcontainers/features/common-utils:2": {
-        "installZsh": true,
-        "installOhMyZsh": true,
         "upgradePackages": true,
-        "username": "rstudio",
+        "username": "ntaxa",
         "uid": "1000",
         "gid": "1000"
       },
       "ghcr.io/devcontainers/features/git:1": {},
       "ghcr.io/devcontainers/features/python:1": {
-        "version": "3.11"
+        "version": "3.12"
       }
     },
     "mounts": [
