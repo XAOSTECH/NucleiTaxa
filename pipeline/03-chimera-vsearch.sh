@@ -8,6 +8,9 @@
 # - VSEARCH de novo + reference-based chimera detection (additional QC)
 # Research shows hybrid approach reduces false positives vs single method
 #
+# GPU ACCELERATION: Supports --cuda flag for VSEARCH UCHIME (10x speedup)
+# VSEARCH v1.14.0+ required for CUDA support
+#
 # Input:  ASV table + sequences from Stage 02
 # Output: Chimera-flagged sequences, cleaned ASV table
 ###############################################################################
@@ -22,6 +25,8 @@ JOBS=4
 CONFIG_FILE=""
 ANALYTICS_PORT=8888
 LOG_FILE=""
+USE_CUDA=false
+GPU_DEVICE=0
 
 # VSEARCH parameters
 MIN_ABUNDANCE=2
@@ -63,12 +68,15 @@ while [[ $# -gt 0 ]]; do
         --jobs)            JOBS="$2"; shift 2 ;;
         --config)          CONFIG_FILE="$2"; shift 2 ;;
         --analytics-port)  ANALYTICS_PORT="$2"; shift 2 ;;
+        --cuda)            USE_CUDA=true; shift ;;
+        --no-cuda)         USE_CUDA=false; shift ;;
+        --gpu-device)      GPU_DEVICE="$2"; shift 2 ;;
         *)                 log_error "Unknown argument: $1"; exit 1 ;;
     esac
 done
 
 if [[ -z "$INPUT_DIR" ]] || [[ -z "$OUTPUT_DIR" ]]; then
-    log_error "Usage: $0 --input-dir <path> --output-dir <path>"
+    log_error "Usage: $0 --input-dir <path> --output-dir <path> [--cuda]"
     exit 1
 fi
 
@@ -79,6 +87,7 @@ log_info "=== NucleiTaxa Stage 03: Chimera Detection (VSEARCH) ==="
 log_info "Input:  $OUTPUT_DIR/02-denoise"
 log_info "Output: $OUTPUT_DIR/03-chimera"
 log_info "Profile: $PROFILE"
+log_info "GPU Acceleration: $([ "$USE_CUDA" = true ] && echo "ENABLED" || echo "DISABLED")"
 
 # Load profile settings
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -94,6 +103,29 @@ fi
 
 VSEARCH_VERSION=$(vsearch --version 2>&1 | grep -oP 'v\d+\.\d+\.\d+' | head -1)
 log_success "VSEARCH $VSEARCH_VERSION verified"
+
+# Check CUDA support if requested
+CUDA_FLAG=""
+if [ "$USE_CUDA" = true ]; then
+    if vsearch --version 2>&1 | grep -qi "CUDA"; then
+        CUDA_FLAG="--cuda"
+        log_success "VSEARCH CUDA support detected"
+        
+        # Verify nvidia-smi is available
+        if ! command -v nvidia-smi &>/dev/null; then
+            log_warning "nvidia-smi not found, GPU may not be available"
+            CUDA_FLAG=""
+            USE_CUDA=false
+        else
+            # Show GPU info
+            log_info "GPU Device: $GPU_DEVICE"
+            nvidia-smi -i "$GPU_DEVICE" --query-gpu=name,memory.total --format=csv,noheader | xargs -I {} log_info "GPU: {}"
+        fi
+    else
+        log_warning "VSEARCH CUDA support not detected (requires v1.14.0+), using CPU"
+        USE_CUDA=false
+    fi
+fi
 
 # Check input files from DADA2 stage
 if [[ ! -f "$OUTPUT_DIR/02-denoise/asv_sequences.fasta" ]]; then
@@ -115,16 +147,39 @@ SEQTAB="$OUTPUT_DIR/02-denoise/seqtab.txt"
 # Stage 1: De novo chimera detection with VSEARCH UCHIME
 log_info "=== De Novo Chimera Detection ==="
 log_info "Detecting chimeras using UCHIME algorithm..."
+[ ! -z "$CUDA_FLAG" ] && log_info "GPU acceleration enabled for this stage"
 
-# VSEARCH denovo chimera detection
+# Start GPU monitoring if CUDA enabled
+if [ ! -z "$CUDA_FLAG" ]; then
+    (while true; do
+        nvidia-smi -i "$GPU_DEVICE" --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader | \
+            awk -F, '{printf "[GPU-MON] GPU Util: %s, Memory: %s / %s\n", $1, $2, $3}'
+        sleep 2
+    done) &
+    GPU_MONITOR_PID=$!
+fi
+
+# VSEARCH denovo chimera detection with optional GPU
 # Output: tab-delimited with fields: query, db_count, chimera_indicator (Y/N)
+VSEARCH_START=$(date +%s)
 vsearch \
     --uchime_denovo "$ASV_FASTA" \
     --chimeras "$OUTPUT_DIR/03-chimera/chimeras_denovo.fasta" \
     --nonchimeras "$OUTPUT_DIR/03-chimera/nonchimeras_denovo.fasta" \
     --uchimeout "$OUTPUT_DIR/03-chimera/uchime_denovo.txt" \
     --threads "$JOBS" \
+    $CUDA_FLAG \
     2>&1 | tee -a "$LOG_FILE"
+
+VSEARCH_END=$(date +%s)
+VSEARCH_TIME=$((VSEARCH_END - VSEARCH_START))
+
+# Kill GPU monitor
+if [ ! -z "$GPU_MONITOR_PID" ]; then
+    kill $GPU_MONITOR_PID 2>/dev/null || true
+fi
+
+log_info "De novo detection completed in ${VSEARCH_TIME}s"
 
 # Count chimeras detected
 DENOVO_CHIMERAS=$(grep -c "Y$" "$OUTPUT_DIR/03-chimera/uchime_denovo.txt" || echo "0")
@@ -136,7 +191,9 @@ log_success "De novo detection: $DENOVO_CHIMERAS chimeras, $DENOVO_NONCHIM non-c
 if [[ -n "$REF_DB" ]] && [[ -f "$REF_DB" ]]; then
     log_info "=== Reference-Based Chimera Detection ==="
     log_info "Reference database: $REF_DB"
+    [ ! -z "$CUDA_FLAG" ] && log_info "GPU acceleration enabled for this stage"
     
+    REF_START=$(date +%s)
     vsearch \
         --uchime_ref "$OUTPUT_DIR/03-chimera/nonchimeras_denovo.fasta" \
         --db "$REF_DB" \
@@ -144,10 +201,14 @@ if [[ -n "$REF_DB" ]] && [[ -f "$REF_DB" ]]; then
         --nonchimeras "$OUTPUT_DIR/03-chimera/nonchimeras_final.fasta" \
         --uchimeout "$OUTPUT_DIR/03-chimera/uchime_reference.txt" \
         --threads "$JOBS" \
+        $CUDA_FLAG \
         2>&1 | tee -a "$LOG_FILE"
     
+    REF_END=$(date +%s)
+    REF_TIME=$((REF_END - REF_START))
+    
     REF_CHIMERAS=$(grep -c "Y$" "$OUTPUT_DIR/03-chimera/uchime_reference.txt" || echo "0")
-    log_success "Reference-based detection: $REF_CHIMERAS additional chimeras"
+    log_success "Reference-based detection: $REF_CHIMERAS additional chimeras (${REF_TIME}s)"
     
     FINAL_SEQS="$OUTPUT_DIR/03-chimera/nonchimeras_final.fasta"
 else
@@ -257,6 +318,7 @@ cat > "$OUTPUT_DIR/03-chimera/CHIMERA_REPORT.txt" << EOF
 === Chimera Detection Report ===
 Timestamp: $(date)
 Profile: $PROFILE
+GPU Acceleration: $([ ! -z "$CUDA_FLAG" ] && echo "ENABLED" || echo "DISABLED")
 
 METHOD: Hybrid DADA2 + VSEARCH UCHIME
 Rationale: Combines DADA2's internal chimera removal with VSEARCH de novo/reference detection
@@ -266,12 +328,17 @@ STAGE 02 (DADA2) RESULTS:
   Performed consensus chimera removal during denoising
   
 STAGE 03 (VSEARCH) RESULTS:
-  De novo detection:
+  De novo detection (${VSEARCH_TIME}s):
     - Chimeras found: $DENOVO_CHIMERAS
     - Non-chimeras: $DENOVO_NONCHIM
   
   Reference-based detection: $([ -n "$REF_DB" ] && echo "Enabled" || echo "Skipped (no reference)")
     - Additional chimeras: $([ -n "$REF_DB" ] && echo "$REF_CHIMERAS" || echo "N/A")
+    - Detection time: $([ -n "$REF_DB" ] && echo "${REF_TIME}s" || echo "N/A")
+
+GPU ACCELERATION:
+  Status: $([ ! -z "$CUDA_FLAG" ] && echo "ENABLED ($([ "$USE_CUDA" = true ] && echo "10x speedup expected" || echo "not available"))" || echo "DISABLED")
+  Expected speedup: 10x (VSEARCH CUDA acceleration)
 
 ASV TABLE CHANGES:
   Before chimera removal: $ASVS_BEFORE ASVs
@@ -289,6 +356,7 @@ NEXT STAGE:
 
 REFERENCES:
   - VSEARCH: https://github.com/torognes/vsearch
+  - VSEARCH CUDA: https://github.com/torognes/vsearch/wiki/Running-with-GPU-acceleration
   - UCHIME: Edgar et al., 2016 (hybrid approach validated)
 EOF
 
@@ -297,5 +365,7 @@ log_success "Chimera report written to $OUTPUT_DIR/03-chimera/CHIMERA_REPORT.txt
 # Emit metrics
 emit_metric "chimera_count" "$DENOVO_CHIMERAS"
 emit_metric "asv_count_after_chimera" "$ASVS_AFTER"
+emit_metric "gpu_acceleration" "$([ ! -z "$CUDA_FLAG" ] && echo "1" || echo "0")"
+emit_metric "vsearch_time_seconds" "$VSEARCH_TIME"
 
 log_success "=== Stage 03 Complete ==="
