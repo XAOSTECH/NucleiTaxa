@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NucleiTaxa Live Analytics</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧬 NucleiTaxa Live Analytics</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status-dot disconnected"></span>
+                <span id="connection-text">Disconnected</span>
+                <span id="pipeline-stage" class="stage">Waiting...</span>
+                <span id="elapsed-time" class="time">00:00</span>
+            </div>
+        </header>
+
+        <main class="dashboard">
+            <!-- Metrics Row -->
+            <section class="metrics-grid">
+                <div class="metric-card">
+                    <h3>ASV Count</h3>
+                    <div class="metric-value" id="asv-count">0</div>
+                    <div class="metric-subtext">Unique sequences</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Mean Quality</h3>
+                    <div class="metric-value" id="mean-quality">0.0</div>
+                    <div class="metric-subtext">Phred score</div>
+                </div>
+                <div class="metric-card">
+                    <h3>GC Content</h3>
+                    <div class="metric-value" id="gc-percent">0.0%</div>
+                    <div class="metric-subtext">Genome composition</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Chimeras</h3>
+                    <div class="metric-value" id="chimera-count">0</div>
+                    <div class="metric-subtext">Detected</div>
+                </div>
+            </section>
+
+            <!-- Charts Row -->
+            <section class="charts-grid">
+                <!-- Taxonomy Pie Chart -->
+                <div class="chart-container">
+                    <h3>Phylum Distribution</h3>
+                    <div id="taxa-pie" style="width:100%; height:300px;"></div>
+                </div>
+
+                <!-- Quality Histogram -->
+                <div class="chart-container">
+                    <h3>Quality Score Distribution</h3>
+                    <div id="quality-hist" style="width:100%; height:300px;"></div>
+                </div>
+            </section>
+
+            <!-- Pipeline Progress -->
+            <section class="progress-section">
+                <h3>Pipeline Progress</h3>
+                <div class="progress-timeline">
+                    <div class="stage-item completed">
+                        <div class="stage-number">1</div>
+                        <div class="stage-name">QC & Filter</div>
+                    </div>
+                    <div class="stage-connector"></div>
+                    <div class="stage-item active">
+                        <div class="stage-number">2</div>
+                        <div class="stage-name">DADA2 Denoise</div>
+                    </div>
+                    <div class="stage-connector"></div>
+                    <div class="stage-item">
+                        <div class="stage-number">3</div>
+                        <div class="stage-name">Chimera Remove</div>
+                    </div>
+                    <div class="stage-connector"></div>
+                    <div class="stage-item">
+                        <div class="stage-number">4</div>
+                        <div class="stage-name">Taxonomy RDP</div>
+                    </div>
+                    <div class="stage-connector"></div>
+                    <div class="stage-item">
+                        <div class="stage-number">5</div>
+                        <div class="stage-name">Phylo FastTree</div>
+                    </div>
+                    <div class="stage-connector"></div>
+                    <div class="stage-item">
+                        <div class="stage-number">6</div>
+                        <div class="stage-name">Krona Viz</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Live Log -->
+            <section class="log-section">
+                <h3>Live Output</h3>
+                <div id="live-log" class="log-container">
+                    <p class="log-entry">[INFO] Connecting to analytics server...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
