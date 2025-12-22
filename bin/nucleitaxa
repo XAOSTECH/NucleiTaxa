@@ -1,0 +1,329 @@
+#!/usr/bin/env bash
+################################################################################
+# NucleiTaxa Main Orchestrator
+# 
+# Unified CLI for amplicon sequence analysis pipeline
+# Combines DADA2, VSEARCH, RDP Classifier, FastTree, Krona
+# 
+# Usage:
+#   nucleitaxa --forward R1.fastq.gz --reverse R2.fastq.gz \
+#     --profile plastid_23s --output results/ --analytics-live
+#
+################################################################################
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PIPELINE_DIR="$SCRIPT_DIR/pipeline"
+BIN_DIR="$SCRIPT_DIR/bin"
+DATA_DIR="$SCRIPT_DIR/data"
+
+# Defaults
+PROFILE="bacterial_16s"
+OUTPUT_DIR="./results"
+ANALYTICS_ENABLED=false
+ANALYTICS_PORT=8888
+VERBOSE=false
+PARALLEL_JOBS=4
+DRY_RUN=false
+
+################################################################################
+# Logging & Utilities
+################################################################################
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*" >&2
+}
+
+log_success() {
+    echo -e "${GREEN}[✓]${NC} $*" >&2
+}
+
+log_warning() {
+    echo -e "${YELLOW}[!]${NC} $*" >&2
+}
+
+log_error() {
+    echo -e "${RED}[✗]${NC} $*" >&2
+}
+
+log_step() {
+    echo -e "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}▶ $*${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+}
+
+usage() {
+    cat <<EOF
+${BLUE}NucleiTaxa${NC} – Bash-native amplicon analysis pipeline
+
+${GREEN}USAGE:${NC}
+  nucleitaxa [OPTIONS]
+
+${GREEN}REQUIRED:${NC}
+  --forward FILE              Forward reads (R1) FASTQ/FASTQ.GZ
+  --reverse FILE              Reverse reads (R2) FASTQ/FASTQ.GZ
+
+${GREEN}OPTIONS:${NC}
+  --profile PROFILE           Nucleid profile (default: bacterial_16s)
+                              Options: plastid_23s, plastid_16s, mito_12s, fungal_its
+  --output DIR                Output directory (default: ./results)
+  --analytics-live            Enable live analytics dashboard
+  --analytics-port PORT       Dashboard port (default: 8888)
+  --jobs N                    Parallel jobs (default: 4)
+  --config FILE               Custom config YAML
+  --verbose                   Verbose logging
+  --dry-run                   Show what would run (don't execute)
+  --stage-only STAGE          Run only one stage (01-06)
+  --resume-from STAGE         Resume from specified stage
+  --help                      Show this help
+
+${GREEN}EXAMPLES:${NC}
+  # Full pipeline with live dashboard
+  nucleitaxa --forward R1.fastq.gz --reverse R2.fastq.gz \\
+    --profile plastid_23s --analytics-live
+
+  # Dry run to see commands
+  nucleitaxa --forward R1.fastq.gz --reverse R2.fastq.gz --dry-run
+
+  # Resume from chimera detection stage
+  nucleitaxa --forward R1.fastq.gz --reverse R2.fastq.gz \\
+    --resume-from 03
+
+${GREEN}OUTPUT:${NC}
+  results/
+  ├── nucleitaxa.log              # Full execution log
+  ├── 01-qc/                      # QC metrics & filtered reads
+  ├── 02-denoise/                 # ASV table & sequences
+  ├── 03-chimera/                 # Chimera-filtered ASVs
+  ├── 04-taxonomy/                # Taxonomic assignments
+  ├── 05-phylo/                   # Phylogenetic tree (Newick)
+  ├── 06-viz/                     # Krona HTML, charts
+  └── ASV_table.txt               # Final abundance matrix
+
+${GREEN}PROFILES:${NC}
+  plastid_23s     Chloroplast 23S (trim: 21bp/20bp, trunc: 285/220)
+  plastid_16s     Chloroplast 16S (trim: 15bp/15bp, trunc: 250/200)
+  mito_12s        Mitochondrial 12S (trim: 10bp/10bp, trunc: 200/180)
+  fungal_its      ITS1/ITS2 (variable length, max EE: 3.0)
+  bacterial_16s   16S rRNA (trim: 13bp/12bp, trunc: 240/160)
+
+EOF
+}
+
+################################################################################
+# Argument Parsing
+################################################################################
+
+FORWARD_READS=""
+REVERSE_READS=""
+STAGE_ONLY=""
+RESUME_FROM=""
+CONFIG_FILE=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --forward)
+            FORWARD_READS="$2"
+            shift 2
+            ;;
+        --reverse)
+            REVERSE_READS="$2"
+            shift 2
+            ;;
+        --profile)
+            PROFILE="$2"
+            shift 2
+            ;;
+        --output)
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --analytics-live)
+            ANALYTICS_ENABLED=true
+            shift
+            ;;
+        --analytics-port)
+            ANALYTICS_PORT="$2"
+            shift 2
+            ;;
+        --jobs)
+            PARALLEL_JOBS="$2"
+            shift 2
+            ;;
+        --config)
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --stage-only)
+            STAGE_ONLY="$2"
+            shift 2
+            ;;
+        --resume-from)
+            RESUME_FROM="$2"
+            shift 2
+            ;;
+        --help | -h)
+            usage
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Validation
+if [[ -z "$FORWARD_READS" ]] || [[ -z "$REVERSE_READS" ]]; then
+    log_error "Missing required arguments: --forward and --reverse"
+    usage
+    exit 1
+fi
+
+if [[ ! -f "$FORWARD_READS" ]]; then
+    log_error "Forward reads file not found: $FORWARD_READS"
+    exit 1
+fi
+
+if [[ ! -f "$REVERSE_READS" ]]; then
+    log_error "Reverse reads file not found: $REVERSE_READS"
+    exit 1
+fi
+
+################################################################################
+# Pipeline Execution
+################################################################################
+
+main() {
+    local start_time
+    start_time=$(date +%s)
+    
+    # Create output structure
+    mkdir -p "$OUTPUT_DIR"/{01-qc,02-denoise,03-chimera,04-taxonomy,05-phylo,06-viz}
+    
+    # Setup logging
+    local log_file="$OUTPUT_DIR/nucleitaxa.log"
+    exec 1> >(tee -a "$log_file")
+    exec 2>&1
+    
+    log_step "NucleiTaxa Amplicon Analysis Pipeline"
+    log_info "Profile: $PROFILE"
+    log_info "Forward: $FORWARD_READS"
+    log_info "Reverse: $REVERSE_READS"
+    log_info "Output: $OUTPUT_DIR"
+    log_info "Analytics: $([ "$ANALYTICS_ENABLED" = true ] && echo "ON (port $ANALYTICS_PORT)" || echo "OFF")"
+    
+    # Start analytics server if enabled
+    if [ "$ANALYTICS_ENABLED" = true ]; then
+        log_info "Starting analytics server..."
+        if [ -x "$BIN_DIR/nucleitaxa-server" ]; then
+            "$BIN_DIR/nucleitaxa-server" --port "$ANALYTICS_PORT" --output "$OUTPUT_DIR" &
+            ANALYTICS_PID=$!
+            log_success "Analytics server running (PID: $ANALYTICS_PID)"
+            log_info "Dashboard: http://localhost:$ANALYTICS_PORT"
+            sleep 2
+        else
+            log_warning "Analytics server not found. Building from source..."
+        fi
+    fi
+    
+    # Pipeline stages
+    local stages=(
+        "01-preprocess.sh"
+        "02-denoise-dada2.sh"
+        "03-chimera-vsearch.sh"
+        "04-taxonomy-rdp.sh"
+        "05-phylo-fasttree.sh"
+        "06-krona-viz.sh"
+    )
+    
+    local stage_num=1
+    for stage_script in "${stages[@]}"; do
+        local stage_name="${stage_script%.*}"
+        
+        # Handle resume/stage-only
+        if [[ -n "$RESUME_FROM" ]]; then
+            local resume_num="${RESUME_FROM#0}"
+            [[ $stage_num -lt $resume_num ]] && { ((stage_num++)); continue; }
+        fi
+        
+        if [[ -n "$STAGE_ONLY" ]]; then
+            local only_num="${STAGE_ONLY#0}"
+            [[ $stage_num -ne $only_num ]] && { ((stage_num++)); continue; }
+        fi
+        
+        log_step "Stage $stage_num: ${stage_name//-/ }"
+        
+        # Construct command
+        local cmd="$PIPELINE_DIR/$stage_script"
+        cmd="$cmd --input-dir $OUTPUT_DIR --output-dir $OUTPUT_DIR"
+        cmd="$cmd --profile $PROFILE --jobs $PARALLEL_JOBS"
+        
+        if [ -n "$CONFIG_FILE" ]; then
+            cmd="$cmd --config $CONFIG_FILE"
+        fi
+        
+        if [ "$VERBOSE" = true ]; then
+            cmd="$cmd --verbose"
+        fi
+        
+        if [ "$ANALYTICS_ENABLED" = true ]; then
+            cmd="$cmd --analytics-port $ANALYTICS_PORT"
+        fi
+        
+        # Execute or dry-run
+        if [ "$DRY_RUN" = true ]; then
+            log_info "[DRY RUN] $cmd"
+        else
+            if bash "$cmd"; then
+                log_success "Stage $stage_num completed"
+            else
+                log_error "Stage $stage_num failed. Check logs in $OUTPUT_DIR"
+                return 1
+            fi
+        fi
+        
+        ((stage_num++))
+    done
+    
+    # Cleanup
+    if [ "$ANALYTICS_ENABLED" = true ] && [ -n "${ANALYTICS_PID:-}" ]; then
+        kill "$ANALYTICS_PID" 2>/dev/null || true
+        log_info "Analytics server stopped"
+    fi
+    
+    # Summary
+    local end_time
+    end_time=$(date +%s)
+    local elapsed=$((end_time - start_time))
+    
+    log_step "Pipeline Complete"
+    log_success "Analysis finished in ${elapsed}s (~$((elapsed / 60))m)"
+    log_info "Results: $OUTPUT_DIR"
+    log_info "View Krona visualization: $OUTPUT_DIR/06-viz/krona.html"
+    
+    return 0
+}
+
+# Execute main
+if ! main; then
+    exit 1
+fi
