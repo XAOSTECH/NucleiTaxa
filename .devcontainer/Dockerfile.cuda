@@ -1,7 +1,15 @@
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
-# Base R environment with CUDA support
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Accept an optional build-time mirror (set via build-arg MIRROR)
+ARG MIRROR=""
+
+# If MIRROR is provided, replace default Ubuntu archive host with it in sources.list
+# This keeps the Dockerfile free of any hardcoded mirrors; set MIRROR at build-time.
+RUN if [ -n "$MIRROR" ]; then \
+    echo "Using APT mirror: $MIRROR"; \
+    sed -i.bak -e "s|http://archive.ubuntu.com/ubuntu|$MIRROR|g" /etc/apt/sources.list || true; \
+  fi && \
+RUN apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 && apt-get install -y --no-install-recommends \
     r-base \
     r-base-dev \
     python3.12 \

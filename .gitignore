@@ -30,3 +30,4 @@ trials/*
 !trials/example/
 !trials/example/*
 Rplots.pdf
+.mirror

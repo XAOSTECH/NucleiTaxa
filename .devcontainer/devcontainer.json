@@ -7,7 +7,10 @@
         "upgradePackages": true,
         "username": "ntaxa",
         "uid": "1000",
-        "gid": "1000"
+        "gid": "1000",
+        "INSTALLZSH": false,
+        "INSTALLOHMYZSH": false,
+        "CONFIGUREZSHASDEFAULTSHELL": false
       },
       "ghcr.io/devcontainers/features/git:1": {},
       "ghcr.io/devcontainers/features/python:1": {
@@ -31,7 +34,13 @@
         "onAutoForward": "notify"
       }
     },
+    "preBuildCommand": "bash .devcontainer/setup-mirror.sh || true",
     "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "build": {
+      "args": {
+        "MIRROR": "${localEnv:MIRROR}"
+      }
+    },
     "customizations": {
       "vscode": {
         "extensions": [
