@@ -451,3 +451,13 @@ See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - 🐛 **Issues?** → [GitHub Issues](https://github.com/xaoscience/NucleiTaxa/issues)
 
 **Last updated:** December 22, 2025
+
+<!-- TREE-VIZ-START -->
+
+## Git Tree Visualisation
+
+![Git Tree Visualisation](.github/tree-viz/git-tree-mini.svg)
+
+[Full SVG](.github/tree-viz/git-tree.svg) · [Interactive version](.github/tree-viz/git-tree.html) · [View data](.github/tree-viz/git-tree-data.json)
+
+<!-- TREE-VIZ-END -->

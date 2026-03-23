@@ -1,0 +1,3281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Tree Visualisation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+
+        .container {
+            background: rgba(15, 15, 35, 0.85);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(100, 60, 200, 0.15);
+            padding: 30px;
+            max-width: 95vw;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 100, 200, 0.15);
+        }
+
+        h1 {
+            color: #c0a0ff;
+            margin-bottom: 8px;
+            font-size: 28px;
+            text-shadow: 0 0 20px rgba(160, 100, 255, 0.4);
+        }
+
+        .info {
+            color: #8888aa;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .canvas-viewport {
+            position: relative;
+            width: 100%;
+            overflow: auto;
+            border: 1px solid rgba(100, 100, 200, 0.2);
+            border-radius: 8px;
+            background: #0a0a1a;
+            max-height: 85vh;
+        }
+
+        #treeCanvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #tooltip {
+            position: fixed;
+            background: rgba(20, 10, 40, 0.96);
+            colour: white;
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(120, 80, 200, 0.3);
+            max-width: 420px;
+            z-index: 1000;
+            border: 1px solid rgba(140, 100, 240, 0.3);
+        }
+
+        #tooltip.visible { opacity: 1; }
+
+        .tooltip-sha {
+            color: #60a5fa;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .tooltip-msg {
+            color: #e2e8f0;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .tooltip-author {
+            color: #a78bfa;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .tooltip-date {
+            color: #64748b;
+            font-size: 10px;
+        }
+        .tooltip-refs {
+            color: #34d399;
+            font-size: 11px;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: rgba(80, 50, 160, 0.6);
+            color: #c0b0e8;
+            border: 1px solid rgba(120, 80, 220, 0.4);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: rgba(100, 60, 200, 0.8);
+            colour: white;
+            box-shadow: 0 0 12px rgba(120, 80, 220, 0.4);
+        }
+
+        .stats {
+            margin-left: auto;
+            font-size: 12px;
+            color: #6b6b8a;
+        }
+
+        .wind-slider-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #c0b0e8;
+        }
+        .wind-slider-label input[type="range"] {
+            width: 100px;
+            accent-color: #7c3aed;
+        }
+        #windVal {
+            min-width: 3.5em;
+            text-align: right;
+            font-size: 11px;
+            color: #8888aa;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8888aa;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌳 Git Tree Visualisation</h1>
+        <p class="info">Hover over leaves to see commit details · Click to highlight ancestry · Ctrl+click to open commit page · Scroll to explore</p>
+
+        <div class="canvas-viewport" id="viewport">
+            <canvas id="treeCanvas" width="13240" height="9460"></canvas>
+        </div>
+
+        <div class="controls">
+            <button onclick="toggleAnimation()">⏯ Animation</button>
+            <button onclick="toggleWind()">🌬 Wind</button>
+            <label class="wind-slider-label" title="Wind intensity">🍃 <input type="range" id="windSlider" min="0" max="500" value="100" oninput="updateWindIntensity(this.value)"><span id="windVal">100%</span></label>
+            <button onclick="resetView()">↺ Reset</button>
+            <span class="stats" id="stats"></span>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="legend-dot" style="background:#4ade80"></span> Commit</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#c084fc"></span> Merge</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#fb923c"></span> Fork point</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span> Tagged</div>
+        </div>
+    </div>
+
+    <div id="tooltip">
+        <div class="tooltip-sha"></div>
+        <div class="tooltip-msg"></div>
+        <div class="tooltip-author"></div>
+        <div class="tooltip-date"></div>
+        <div class="tooltip-refs"></div>
+    </div>
+
+    <script>
+        // Embedded git data
+        const gitData =
+{
+  "metadata": {
+    "repository": "NucleiTaxa",
+    "current_branch": "main",
+    "repo_url": "https://github.com/XAOSTECH/NucleiTaxa",
+    "generated": "2026-03-23T02:38:33Z",
+    "max_commits": 500
+  },
+  "commits": [
+    {
+      "sha": "980f73be9d4bdbeb8397f82aeaf29d475613d9b9",
+      "short": "980f73b",
+      "parents": "3eb93ade732d44b385df2f83e032c699518eb172 07aa05ac697365c7f98366637f169dbb2e31a215",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2026-03-22T16:23:10Z",
+      "timestamp": 1774196590,
+      "subject": "Merge pull request #13 from XAOSTECH/dependabot/github_actions/actions/upload-artifact-7",
+      "refs": "HEAD -> main, origin/main",
+      "position": {
+        "x": 600,
+        "y": 60,
+        "lane": 0,
+        "radius": 10,
+        "depth": 0,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "07aa05ac697365c7f98366637f169dbb2e31a215",
+      "short": "07aa05a",
+      "parents": "a90053bc425779089548fff41b9a9b53cea60108",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2026-03-22T16:22:55Z",
+      "timestamp": 1774196575,
+      "subject": "deps(deps): bump actions/upload-artifact from 4 to 7",
+      "refs": "",
+      "position": {
+        "x": 720,
+        "y": 100,
+        "lane": 1,
+        "radius": 6,
+        "depth": 1,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "3eb93ade732d44b385df2f83e032c699518eb172",
+      "short": "3eb93ad",
+      "parents": "a90053bc425779089548fff41b9a9b53cea60108 ef2f3e6ed5f2c51dd7c15e7f307a6af76ac51df0",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2026-03-22T16:22:46Z",
+      "timestamp": 1774196566,
+      "subject": "Merge pull request #11 from XAOSTECH/dependabot/github_actions/actions/create-github-app-token-3",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 180,
+        "lane": 0,
+        "radius": 10,
+        "depth": 2,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "6b1fd0daf7909ce3862af5797965309a319c7e80",
+      "short": "6b1fd0d",
+      "parents": "a90053bc425779089548fff41b9a9b53cea60108",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2026-03-22T16:22:43Z",
+      "timestamp": 1774196563,
+      "subject": "deps(deps): bump XAOSTECH/dev-control",
+      "refs": "origin/dependabot/github_actions/XAOSTECH/dev-control-e28642ed90425e0aa13ec5fde6c87b749677f121",
+      "position": {
+        "x": 480,
+        "y": 220,
+        "lane": -1,
+        "radius": 6,
+        "depth": 3,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ef2f3e6ed5f2c51dd7c15e7f307a6af76ac51df0",
+      "short": "ef2f3e6",
+      "parents": "a90053bc425779089548fff41b9a9b53cea60108",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2026-03-22T16:22:29Z",
+      "timestamp": 1774196549,
+      "subject": "deps(deps): bump actions/create-github-app-token from 2 to 3",
+      "refs": "",
+      "position": {
+        "x": 840,
+        "y": 300,
+        "lane": 2,
+        "radius": 6,
+        "depth": 4,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "a90053bc425779089548fff41b9a9b53cea60108",
+      "short": "a90053b",
+      "parents": "3f03000930502f41e4c17884fa1f745c1257fb01",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2026-03-17T04:06:42+01:00",
+      "timestamp": 1773716802,
+      "subject": "chore(dc-init+contain): update workflows + actions + container config",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 380,
+        "lane": 0,
+        "radius": 9,
+        "depth": 5,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "3f03000930502f41e4c17884fa1f745c1257fb01",
+      "short": "3f03000",
+      "parents": "5311755710e5d9f9ee2499631f4d7d92947b60b1",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-23T00:20:26+01:00",
+      "timestamp": 1766445626,
+      "subject": "chore(devcontainer): guard python installs in post-create.sh (SKIP_PYTHON=1 to skip)",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 420,
+        "lane": 0,
+        "radius": 6,
+        "depth": 6,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "5311755710e5d9f9ee2499631f4d7d92947b60b1",
+      "short": "5311755",
+      "parents": "49b4cec2a9838d07bc0b04e8a6a51360a58a4527",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-23T00:20:18+01:00",
+      "timestamp": 1766445618,
+      "subject": "chore(devcontainer): simplify Dockerfile.cuda to minimal CUDA+R base and MIRROR build-arg",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 460,
+        "lane": 0,
+        "radius": 6,
+        "depth": 7,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "49b4cec2a9838d07bc0b04e8a6a51360a58a4527",
+      "short": "49b4cec",
+      "parents": "647e31be65624a7d912c00861c39a461f233c41a",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-23T00:20:11+01:00",
+      "timestamp": 1766445611,
+      "subject": "chore(devcontainer): switch to minimal CUDA+R devcontainer (remove heavy python feature & postCreate)",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 500,
+        "lane": 0,
+        "radius": 6,
+        "depth": 8,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "647e31be65624a7d912c00861c39a461f233c41a",
+      "short": "647e31b",
+      "parents": "dde4570909255fd8d626b9d12214732c4ec22a24 8c43e83201e72c54814f0f356d18e88389273b91",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:31:37Z",
+      "timestamp": 1766431897,
+      "subject": "Merge pull request #9 from xaoscience/short-term-vsearch-cuda",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 540,
+        "lane": 0,
+        "radius": 10,
+        "depth": 9,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "376b852cb0e66e4ee0339be4801b446736c0dd03",
+      "short": "376b852",
+      "parents": "8ea4df1f029b6e081d065e15fae7e09e512a96db 1965089e5c62a5f35fd7abf9e584783fe92c07e6",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:31:37Z",
+      "timestamp": 1766431897,
+      "subject": "Merge pull request #9 from xaoscience/short-term-vsearch-cuda",
+      "refs": "origin/Main.bak",
+      "position": {
+        "x": 360,
+        "y": 580,
+        "lane": -2,
+        "radius": 10,
+        "depth": 10,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "8c43e83201e72c54814f0f356d18e88389273b91",
+      "short": "8c43e83",
+      "parents": "d2a80384527e28d7d33d030cdb6e27d51c64898b",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:14:02+01:00",
+      "timestamp": 1766430842,
+      "subject": "docs: Add Phase 1 GPU implementation guide and validation checklist",
+      "refs": "",
+      "position": {
+        "x": 960,
+        "y": 660,
+        "lane": 3,
+        "radius": 6,
+        "depth": 11,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "1965089e5c62a5f35fd7abf9e584783fe92c07e6",
+      "short": "1965089",
+      "parents": "6f05151d1d316c63ac29b65033a891fdc4f7fa21",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:14:02+01:00",
+      "timestamp": 1766430842,
+      "subject": "docs: Add Phase 1 GPU implementation guide and validation checklist",
+      "refs": "",
+      "position": {
+        "x": 240,
+        "y": 740,
+        "lane": -3,
+        "radius": 6,
+        "depth": 12,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d2a80384527e28d7d33d030cdb6e27d51c64898b",
+      "short": "d2a8038",
+      "parents": "fd42f6f5321a3f071d3a5e028ebb45b9b21dd2d0",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:13:31+01:00",
+      "timestamp": 1766430811,
+      "subject": "feat: Add comprehensive CPU vs GPU benchmark test suite",
+      "refs": "",
+      "position": {
+        "x": 1080,
+        "y": 820,
+        "lane": 4,
+        "radius": 6,
+        "depth": 13,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "6f05151d1d316c63ac29b65033a891fdc4f7fa21",
+      "short": "6f05151",
+      "parents": "b68691bdc33238f55b87d59c2ee102187fc6ba21",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:13:31+01:00",
+      "timestamp": 1766430811,
+      "subject": "feat: Add comprehensive CPU vs GPU benchmark test suite",
+      "refs": "",
+      "position": {
+        "x": 120,
+        "y": 900,
+        "lane": -4,
+        "radius": 6,
+        "depth": 14,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "fd42f6f5321a3f071d3a5e028ebb45b9b21dd2d0",
+      "short": "fd42f6f",
+      "parents": "56fa90210f69760cc53a6007d509730a1c91817c",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:12:56+01:00",
+      "timestamp": 1766430776,
+      "subject": "feat: Add CUDA GPU acceleration support to chimera detection stage",
+      "refs": "",
+      "position": {
+        "x": 1200,
+        "y": 980,
+        "lane": 5,
+        "radius": 6,
+        "depth": 15,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "b68691bdc33238f55b87d59c2ee102187fc6ba21",
+      "short": "b68691b",
+      "parents": "d0ea104c79161f998f8fc4b9b329b627bec6dc15",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:12:56+01:00",
+      "timestamp": 1766430776,
+      "subject": "feat: Add CUDA GPU acceleration support to chimera detection stage",
+      "refs": "",
+      "position": {
+        "x": 0,
+        "y": 1060,
+        "lane": -5,
+        "radius": 6,
+        "depth": 16,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "56fa90210f69760cc53a6007d509730a1c91817c",
+      "short": "56fa902",
+      "parents": "dde4570909255fd8d626b9d12214732c4ec22a24",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:10:37+01:00",
+      "timestamp": 1766430637,
+      "subject": "feat: Update CLI orchestrator with CUDA flag support and enhanced logging",
+      "refs": "",
+      "position": {
+        "x": 1320,
+        "y": 1140,
+        "lane": 6,
+        "radius": 6,
+        "depth": 17,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d0ea104c79161f998f8fc4b9b329b627bec6dc15",
+      "short": "d0ea104",
+      "parents": "8ea4df1f029b6e081d065e15fae7e09e512a96db",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:10:37+01:00",
+      "timestamp": 1766430637,
+      "subject": "feat: Update CLI orchestrator with CUDA flag support and enhanced logging",
+      "refs": "",
+      "position": {
+        "x": -120,
+        "y": 1220,
+        "lane": -6,
+        "radius": 6,
+        "depth": 18,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "dde4570909255fd8d626b9d12214732c4ec22a24",
+      "short": "dde4570",
+      "parents": "88201ac52178d25ae0b7891ea9ad05b4fa5b4a7e 2fd223174ab39365d7c3c569a64441e6d15c551f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:02:06+01:00",
+      "timestamp": 1766430126,
+      "subject": "Merge pull request #8 from xaoscience/cuda-expansion",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 1300,
+        "lane": 0,
+        "radius": 10,
+        "depth": 19,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "8ea4df1f029b6e081d065e15fae7e09e512a96db",
+      "short": "8ea4df1",
+      "parents": "89aba319ae4af19dc34e05975b101f242f651c96 8752098c205d3b8bf01f4e90f348567c12c53438",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T20:02:06+01:00",
+      "timestamp": 1766430126,
+      "subject": "Merge pull request #8 from xaoscience/cuda-expansion",
+      "refs": "",
+      "position": {
+        "x": 1440,
+        "y": 1340,
+        "lane": 7,
+        "radius": 10,
+        "depth": 20,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "2fd223174ab39365d7c3c569a64441e6d15c551f",
+      "short": "2fd2231",
+      "parents": "ac91cc45ebd2cd040b4064e1e313d090acc57413",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:55+01:00",
+      "timestamp": 1766429995,
+      "subject": "docs: Update README with CUDA acceleration options and GPU performance",
+      "refs": "",
+      "position": {
+        "x": -240,
+        "y": 1420,
+        "lane": -7,
+        "radius": 6,
+        "depth": 21,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "8752098c205d3b8bf01f4e90f348567c12c53438",
+      "short": "8752098",
+      "parents": "9d17c0cb0cc7e429a455ea2a88177b239e7cfb04",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:55+01:00",
+      "timestamp": 1766429995,
+      "subject": "docs: Update README with CUDA acceleration options and GPU performance",
+      "refs": "",
+      "position": {
+        "x": 1560,
+        "y": 1500,
+        "lane": 8,
+        "radius": 6,
+        "depth": 22,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ac91cc45ebd2cd040b4064e1e313d090acc57413",
+      "short": "ac91cc4",
+      "parents": "47b0efc76f7b9ca7619f9371e96e32320df5c33b",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:11+01:00",
+      "timestamp": 1766429951,
+      "subject": "feat: Add Dockerfile.cuda for GPU-accelerated amplicon analysis",
+      "refs": "",
+      "position": {
+        "x": -360,
+        "y": 1580,
+        "lane": -8,
+        "radius": 6,
+        "depth": 23,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "9d17c0cb0cc7e429a455ea2a88177b239e7cfb04",
+      "short": "9d17c0c",
+      "parents": "deb66922a33456f77247d461496482138d938e27",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:11+01:00",
+      "timestamp": 1766429951,
+      "subject": "feat: Add Dockerfile.cuda for GPU-accelerated amplicon analysis",
+      "refs": "",
+      "position": {
+        "x": 1680,
+        "y": 1660,
+        "lane": 9,
+        "radius": 6,
+        "depth": 24,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "47b0efc76f7b9ca7619f9371e96e32320df5c33b",
+      "short": "47b0efc",
+      "parents": "88201ac52178d25ae0b7891ea9ad05b4fa5b4a7e",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:03+01:00",
+      "timestamp": 1766429943,
+      "subject": "docs: Add CUDA acceleration guide for GPU-enabled amplicon analysis",
+      "refs": "",
+      "position": {
+        "x": -480,
+        "y": 1740,
+        "lane": -9,
+        "radius": 6,
+        "depth": 25,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "deb66922a33456f77247d461496482138d938e27",
+      "short": "deb6692",
+      "parents": "89aba319ae4af19dc34e05975b101f242f651c96",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T19:59:03+01:00",
+      "timestamp": 1766429943,
+      "subject": "docs: Add CUDA acceleration guide for GPU-enabled amplicon analysis",
+      "refs": "",
+      "position": {
+        "x": 1800,
+        "y": 1820,
+        "lane": 10,
+        "radius": 6,
+        "depth": 26,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "88201ac52178d25ae0b7891ea9ad05b4fa5b4a7e",
+      "short": "88201ac",
+      "parents": "9b4ed2e0e15eba2a613909c12601f68da3bd5472",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:56:07Z",
+      "timestamp": 1766429767,
+      "subject": "adapt container",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 1900,
+        "lane": 0,
+        "radius": 9,
+        "depth": 27,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "89aba319ae4af19dc34e05975b101f242f651c96",
+      "short": "89aba31",
+      "parents": "b076780e988b5a44c6e3e881afe783859cbd8bb0",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:56:07Z",
+      "timestamp": 1766429767,
+      "subject": "adapt container",
+      "refs": "",
+      "position": {
+        "x": -600,
+        "y": 1940,
+        "lane": -10,
+        "radius": 9,
+        "depth": 28,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "9b4ed2e0e15eba2a613909c12601f68da3bd5472",
+      "short": "9b4ed2e",
+      "parents": "d6a8bbcd2edd398293f05d1aaf770a8ba1c4b964",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:11:32Z",
+      "timestamp": 1766427092,
+      "subject": "chore: Update status badge to experimental and license to GPL3",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 2020,
+        "lane": 0,
+        "radius": 6,
+        "depth": 29,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "b076780e988b5a44c6e3e881afe783859cbd8bb0",
+      "short": "b076780",
+      "parents": "898414aed74b8569ef8ee9d777131de1fe20f556",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:11:32Z",
+      "timestamp": 1766427092,
+      "subject": "chore: Update status badge to experimental and license to GPL3",
+      "refs": "",
+      "position": {
+        "x": 1920,
+        "y": 2060,
+        "lane": 11,
+        "radius": 6,
+        "depth": 30,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d6a8bbcd2edd398293f05d1aaf770a8ba1c4b964",
+      "short": "d6a8bbc",
+      "parents": "1071586be541cd9a6acbb25f574ee874f0689197",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:08:49Z",
+      "timestamp": 1766426929,
+      "subject": "cleanup: Remove all legacy documentation and example data",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 2140,
+        "lane": 0,
+        "radius": 6,
+        "depth": 31,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "898414aed74b8569ef8ee9d777131de1fe20f556",
+      "short": "898414a",
+      "parents": "2af1c223b0102da4af5cca853ae50aa0b1aef51f",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:08:49Z",
+      "timestamp": 1766426929,
+      "subject": "cleanup: Remove all legacy documentation and example data",
+      "refs": "",
+      "position": {
+        "x": -720,
+        "y": 2180,
+        "lane": -11,
+        "radius": 6,
+        "depth": 32,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "1071586be541cd9a6acbb25f574ee874f0689197",
+      "short": "1071586",
+      "parents": "335804e2fee06da3a82f560a8a7185261564406c",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:07:34Z",
+      "timestamp": 1766426854,
+      "subject": "manual cleanup",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 2260,
+        "lane": 0,
+        "radius": 6,
+        "depth": 33,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "2af1c223b0102da4af5cca853ae50aa0b1aef51f",
+      "short": "2af1c22",
+      "parents": "84ab5f66ac980129c65b0e6392411db8c552c333",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T18:07:34Z",
+      "timestamp": 1766426854,
+      "subject": "manual cleanup",
+      "refs": "",
+      "position": {
+        "x": 2040,
+        "y": 2300,
+        "lane": 12,
+        "radius": 6,
+        "depth": 34,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "335804e2fee06da3a82f560a8a7185261564406c",
+      "short": "335804e",
+      "parents": "72d2cab84261f4b3d8b486c006897b6f8c1e6041 48ff6fa3357a22bc9d01bbc9bc6586d1acb6806f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T17:45:57+01:00",
+      "timestamp": 1766421957,
+      "subject": "Merge pull request #7 from xaoscience/cleanup-refactor",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 2380,
+        "lane": 0,
+        "radius": 10,
+        "depth": 35,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "84ab5f66ac980129c65b0e6392411db8c552c333",
+      "short": "84ab5f6",
+      "parents": "f28913df6893db481d1d51364cb022a09197f55e dba712976861b89e1817ff1b3678e1f49ee608bf",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T17:45:57+01:00",
+      "timestamp": 1766421957,
+      "subject": "Merge pull request #7 from xaoscience/cleanup-refactor",
+      "refs": "",
+      "position": {
+        "x": -840,
+        "y": 2420,
+        "lane": -12,
+        "radius": 10,
+        "depth": 36,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "48ff6fa3357a22bc9d01bbc9bc6586d1acb6806f",
+      "short": "48ff6fa",
+      "parents": "c4c7d0b6c33da06a97f95ccaba48d78787918e64",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T16:44:56Z",
+      "timestamp": 1766421896,
+      "subject": "cleanup: Remove legacy Python/R code and old infrastructure",
+      "refs": "",
+      "position": {
+        "x": 2160,
+        "y": 2500,
+        "lane": 13,
+        "radius": 6,
+        "depth": 37,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "dba712976861b89e1817ff1b3678e1f49ee608bf",
+      "short": "dba7129",
+      "parents": "d716526585d97122d23ea75291fccc92b30a9c2d",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T16:44:56Z",
+      "timestamp": 1766421896,
+      "subject": "cleanup: Remove legacy Python/R code and old infrastructure",
+      "refs": "",
+      "position": {
+        "x": -960,
+        "y": 2580,
+        "lane": -13,
+        "radius": 6,
+        "depth": 38,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "c4c7d0b6c33da06a97f95ccaba48d78787918e64",
+      "short": "c4c7d0b",
+      "parents": "7861cf637a518791f0f110d288973539d9b808d3",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T17:44:16+01:00",
+      "timestamp": 1766421856,
+      "subject": "cleanup: Remove legacy Python infrastructure",
+      "refs": "",
+      "position": {
+        "x": 2280,
+        "y": 2660,
+        "lane": 14,
+        "radius": 6,
+        "depth": 39,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d716526585d97122d23ea75291fccc92b30a9c2d",
+      "short": "d716526",
+      "parents": "49de8d6e737c22ea51105b35efcd20fc2f22c917",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T17:44:16+01:00",
+      "timestamp": 1766421856,
+      "subject": "cleanup: Remove legacy Python infrastructure",
+      "refs": "",
+      "position": {
+        "x": -1080,
+        "y": 2740,
+        "lane": -14,
+        "radius": 6,
+        "depth": 40,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "7861cf637a518791f0f110d288973539d9b808d3",
+      "short": "7861cf6",
+      "parents": "01548281b32aa135a93282be8770a1424b48cfdc",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:44:41+01:00",
+      "timestamp": 1766411081,
+      "subject": "cleanup: Remove redundant documentation",
+      "refs": "",
+      "position": {
+        "x": 2400,
+        "y": 2820,
+        "lane": 15,
+        "radius": 6,
+        "depth": 41,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "49de8d6e737c22ea51105b35efcd20fc2f22c917",
+      "short": "49de8d6",
+      "parents": "be8387c7d2b19b5be037833fdbf5c1ecefa5ec39",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:44:41+01:00",
+      "timestamp": 1766411081,
+      "subject": "cleanup: Remove redundant documentation",
+      "refs": "",
+      "position": {
+        "x": -1200,
+        "y": 2900,
+        "lane": -15,
+        "radius": 6,
+        "depth": 42,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "01548281b32aa135a93282be8770a1424b48cfdc",
+      "short": "0154828",
+      "parents": "72d2cab84261f4b3d8b486c006897b6f8c1e6041",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:44:36+01:00",
+      "timestamp": 1766411076,
+      "subject": "refactor: Reorganize project structure and consolidate documentation",
+      "refs": "",
+      "position": {
+        "x": 2520,
+        "y": 2980,
+        "lane": 16,
+        "radius": 6,
+        "depth": 43,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "be8387c7d2b19b5be037833fdbf5c1ecefa5ec39",
+      "short": "be8387c",
+      "parents": "f28913df6893db481d1d51364cb022a09197f55e",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:44:36+01:00",
+      "timestamp": 1766411076,
+      "subject": "refactor: Reorganize project structure and consolidate documentation",
+      "refs": "",
+      "position": {
+        "x": -1320,
+        "y": 3060,
+        "lane": -16,
+        "radius": 6,
+        "depth": 44,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "72d2cab84261f4b3d8b486c006897b6f8c1e6041",
+      "short": "72d2cab",
+      "parents": "614fcc152a0ca61577ae974309b3284d38449484 f65ee2f1d27958048973f1aed77844b10fc9e4d4",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:38:23+01:00",
+      "timestamp": 1766410703,
+      "subject": "Merge pull request #6 from xaoscience/bash-refactor",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 3140,
+        "lane": 0,
+        "radius": 10,
+        "depth": 45,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "f28913df6893db481d1d51364cb022a09197f55e",
+      "short": "f28913d",
+      "parents": "7f51b95a8195e21bd04115766b3d03a95f065797 f3e795e217bc32a3f5154ab159bca0e2c959a3aa",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:38:23+01:00",
+      "timestamp": 1766410703,
+      "subject": "Merge pull request #6 from xaoscience/bash-refactor",
+      "refs": "",
+      "position": {
+        "x": 2640,
+        "y": 3180,
+        "lane": 17,
+        "radius": 10,
+        "depth": 46,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "f65ee2f1d27958048973f1aed77844b10fc9e4d4",
+      "short": "f65ee2f",
+      "parents": "e847b5d0a9d2cf1f5107d35e5378d8d1908c27b9",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:35:09+01:00",
+      "timestamp": 1766410509,
+      "subject": "Bash-Refactor: System architecture documentation",
+      "refs": "",
+      "position": {
+        "x": -1440,
+        "y": 3260,
+        "lane": -17,
+        "radius": 6,
+        "depth": 47,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "f3e795e217bc32a3f5154ab159bca0e2c959a3aa",
+      "short": "f3e795e",
+      "parents": "0839e5f1f02b40056e469e24298c7d476e091758",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:35:09+01:00",
+      "timestamp": 1766410509,
+      "subject": "Bash-Refactor: System architecture documentation",
+      "refs": "",
+      "position": {
+        "x": 2760,
+        "y": 3340,
+        "lane": 18,
+        "radius": 6,
+        "depth": 48,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "e847b5d0a9d2cf1f5107d35e5378d8d1908c27b9",
+      "short": "e847b5d",
+      "parents": "0c069f80be65c526ed1dacc010f69f914676bc76",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:34:32+01:00",
+      "timestamp": 1766410472,
+      "subject": "Bash-Refactor: Implementation summary & delivery report",
+      "refs": "",
+      "position": {
+        "x": -1560,
+        "y": 3420,
+        "lane": -18,
+        "radius": 6,
+        "depth": 49,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "0839e5f1f02b40056e469e24298c7d476e091758",
+      "short": "0839e5f",
+      "parents": "94340aa7e3d79a4a255654614b5603c7f6abd8ec",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:34:32+01:00",
+      "timestamp": 1766410472,
+      "subject": "Bash-Refactor: Implementation summary & delivery report",
+      "refs": "",
+      "position": {
+        "x": 2880,
+        "y": 3500,
+        "lane": 19,
+        "radius": 6,
+        "depth": 50,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "0c069f80be65c526ed1dacc010f69f914676bc76",
+      "short": "0c069f8",
+      "parents": "ab00870147dd4b1f20cedc4d1f873ce9bb6ccc6b",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:33:46+01:00",
+      "timestamp": 1766410426,
+      "subject": "Bash-Refactor: Quick reference guide with copy-paste recipes",
+      "refs": "",
+      "position": {
+        "x": -1680,
+        "y": 3580,
+        "lane": -19,
+        "radius": 6,
+        "depth": 51,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "94340aa7e3d79a4a255654614b5603c7f6abd8ec",
+      "short": "94340aa",
+      "parents": "ab82520bc92e0245f9682ff59a016c612f6805f6",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:33:46+01:00",
+      "timestamp": 1766410426,
+      "subject": "Bash-Refactor: Quick reference guide with copy-paste recipes",
+      "refs": "",
+      "position": {
+        "x": 3000,
+        "y": 3660,
+        "lane": 20,
+        "radius": 6,
+        "depth": 52,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ab00870147dd4b1f20cedc4d1f873ce9bb6ccc6b",
+      "short": "ab00870",
+      "parents": "25936e6b95c8d36adf4f8fc000d1b314e94d543d",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:33:25+01:00",
+      "timestamp": 1766410405,
+      "subject": "Bash-Refactor: Complete documentation with execution guide",
+      "refs": "",
+      "position": {
+        "x": -1800,
+        "y": 3740,
+        "lane": -20,
+        "radius": 6,
+        "depth": 53,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ab82520bc92e0245f9682ff59a016c612f6805f6",
+      "short": "ab82520",
+      "parents": "66c7ad0c5f7266bda9b32306a5e8a30201aa4aa6",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:33:25+01:00",
+      "timestamp": 1766410405,
+      "subject": "Bash-Refactor: Complete documentation with execution guide",
+      "refs": "",
+      "position": {
+        "x": 3120,
+        "y": 3820,
+        "lane": 21,
+        "radius": 6,
+        "depth": 54,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "25936e6b95c8d36adf4f8fc000d1b314e94d543d",
+      "short": "25936e6",
+      "parents": "1f8e399264d370666b4be8882773a3652e039fc2",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:32:48+01:00",
+      "timestamp": 1766410368,
+      "subject": "Bash-Refactor: Test suite for pipeline validation",
+      "refs": "",
+      "position": {
+        "x": -1920,
+        "y": 3900,
+        "lane": -21,
+        "radius": 6,
+        "depth": 55,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "66c7ad0c5f7266bda9b32306a5e8a30201aa4aa6",
+      "short": "66c7ad0",
+      "parents": "81be33813a593ed3f9b5864d834e9674f61556e8",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:32:48+01:00",
+      "timestamp": 1766410368,
+      "subject": "Bash-Refactor: Test suite for pipeline validation",
+      "refs": "",
+      "position": {
+        "x": 3240,
+        "y": 3980,
+        "lane": 22,
+        "radius": 6,
+        "depth": 56,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "1f8e399264d370666b4be8882773a3652e039fc2",
+      "short": "1f8e399",
+      "parents": "ecebb03312cf146f4824da1bb7141d4b2ce400ae",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:32:23+01:00",
+      "timestamp": 1766410343,
+      "subject": "Bash-Refactor: Pipeline Stage 06 - Krona visualization (final stage)",
+      "refs": "",
+      "position": {
+        "x": -2040,
+        "y": 4060,
+        "lane": -22,
+        "radius": 6,
+        "depth": 57,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "81be33813a593ed3f9b5864d834e9674f61556e8",
+      "short": "81be338",
+      "parents": "fc056cbe43fa9ae34c6ccf5ff46c0f8aaa2fd972",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:32:23+01:00",
+      "timestamp": 1766410343,
+      "subject": "Bash-Refactor: Pipeline Stage 06 - Krona visualization (final stage)",
+      "refs": "",
+      "position": {
+        "x": 3360,
+        "y": 4140,
+        "lane": 23,
+        "radius": 6,
+        "depth": 58,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ecebb03312cf146f4824da1bb7141d4b2ce400ae",
+      "short": "ecebb03",
+      "parents": "40b2117d96df47b0f2c799d41dbe9fdf0765f7f5",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:31:48+01:00",
+      "timestamp": 1766410308,
+      "subject": "Bash-Refactor: Pipeline Stage 05 - FastTree phylogenetic inference",
+      "refs": "",
+      "position": {
+        "x": -2160,
+        "y": 4220,
+        "lane": -23,
+        "radius": 6,
+        "depth": 59,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "fc056cbe43fa9ae34c6ccf5ff46c0f8aaa2fd972",
+      "short": "fc056cb",
+      "parents": "d108853f6e29e88fb356f91324c0dd81d7d70a26",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:31:48+01:00",
+      "timestamp": 1766410308,
+      "subject": "Bash-Refactor: Pipeline Stage 05 - FastTree phylogenetic inference",
+      "refs": "",
+      "position": {
+        "x": 3480,
+        "y": 4300,
+        "lane": 24,
+        "radius": 6,
+        "depth": 60,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "40b2117d96df47b0f2c799d41dbe9fdf0765f7f5",
+      "short": "40b2117",
+      "parents": "8eaaea4bdf1b0a80d3beed08af5f6e2fba28f0ac",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:31:19+01:00",
+      "timestamp": 1766410279,
+      "subject": "Bash-Refactor: Pipeline Stage 04 - RDP Classifier taxonomy",
+      "refs": "",
+      "position": {
+        "x": -2280,
+        "y": 4380,
+        "lane": -24,
+        "radius": 6,
+        "depth": 61,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d108853f6e29e88fb356f91324c0dd81d7d70a26",
+      "short": "d108853",
+      "parents": "d279cc496fdba6549b12241087c7f45b5cb2d70f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:31:19+01:00",
+      "timestamp": 1766410279,
+      "subject": "Bash-Refactor: Pipeline Stage 04 - RDP Classifier taxonomy",
+      "refs": "",
+      "position": {
+        "x": 3600,
+        "y": 4460,
+        "lane": 25,
+        "radius": 6,
+        "depth": 62,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "8eaaea4bdf1b0a80d3beed08af5f6e2fba28f0ac",
+      "short": "8eaaea4",
+      "parents": "d828cfbb80a003c5bb45e6959c65ac6c57470ed6",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:30:50+01:00",
+      "timestamp": 1766410250,
+      "subject": "Bash-Refactor: Pipeline Stage 03 - Chimera detection (VSEARCH UCHIME)",
+      "refs": "",
+      "position": {
+        "x": -2400,
+        "y": 4540,
+        "lane": -25,
+        "radius": 6,
+        "depth": 63,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d279cc496fdba6549b12241087c7f45b5cb2d70f",
+      "short": "d279cc4",
+      "parents": "01e95e1592111a215c88575a28472629cc763743",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:30:50+01:00",
+      "timestamp": 1766410250,
+      "subject": "Bash-Refactor: Pipeline Stage 03 - Chimera detection (VSEARCH UCHIME)",
+      "refs": "",
+      "position": {
+        "x": 3720,
+        "y": 4620,
+        "lane": 26,
+        "radius": 6,
+        "depth": 64,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d828cfbb80a003c5bb45e6959c65ac6c57470ed6",
+      "short": "d828cfb",
+      "parents": "452d052624998a22e29f1a9c250cbe7c9c52d176",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:30:23+01:00",
+      "timestamp": 1766410223,
+      "subject": "Bash-Refactor: Pipeline Stage 02 - DADA2 denoising",
+      "refs": "",
+      "position": {
+        "x": -2520,
+        "y": 4700,
+        "lane": -26,
+        "radius": 6,
+        "depth": 65,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "01e95e1592111a215c88575a28472629cc763743",
+      "short": "01e95e1",
+      "parents": "20f50198208f04d6400c43ade56ba3926dbd7a4f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:30:23+01:00",
+      "timestamp": 1766410223,
+      "subject": "Bash-Refactor: Pipeline Stage 02 - DADA2 denoising",
+      "refs": "",
+      "position": {
+        "x": 3840,
+        "y": 4780,
+        "lane": 27,
+        "radius": 6,
+        "depth": 66,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "452d052624998a22e29f1a9c250cbe7c9c52d176",
+      "short": "452d052",
+      "parents": "0e753029b85deb795167cc53aab97b8f067d93bd",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:29:30+01:00",
+      "timestamp": 1766410170,
+      "subject": "Bash-Refactor: Pipeline Stage 01 - Preprocess (QC, trim, filter)",
+      "refs": "",
+      "position": {
+        "x": -2640,
+        "y": 4860,
+        "lane": -27,
+        "radius": 6,
+        "depth": 67,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "20f50198208f04d6400c43ade56ba3926dbd7a4f",
+      "short": "20f5019",
+      "parents": "bb26e14d19323b6c3087b01fbdc56ef37f8797c5",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:29:30+01:00",
+      "timestamp": 1766410170,
+      "subject": "Bash-Refactor: Pipeline Stage 01 - Preprocess (QC, trim, filter)",
+      "refs": "",
+      "position": {
+        "x": 3960,
+        "y": 4940,
+        "lane": 28,
+        "radius": 6,
+        "depth": 68,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "0e753029b85deb795167cc53aab97b8f067d93bd",
+      "short": "0e75302",
+      "parents": "82f0fe0879b572c76a1a1c61ca7874a4c93e5abe",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:27:27+01:00",
+      "timestamp": 1766410047,
+      "subject": "Bash-Refactor: Dashboard JavaScript (real-time updates)",
+      "refs": "",
+      "position": {
+        "x": -2760,
+        "y": 5020,
+        "lane": -28,
+        "radius": 6,
+        "depth": 69,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "bb26e14d19323b6c3087b01fbdc56ef37f8797c5",
+      "short": "bb26e14",
+      "parents": "515aeed25740735319e1d324c6cbdedf1ba9371e",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:27:27+01:00",
+      "timestamp": 1766410047,
+      "subject": "Bash-Refactor: Dashboard JavaScript (real-time updates)",
+      "refs": "",
+      "position": {
+        "x": 4080,
+        "y": 5100,
+        "lane": 29,
+        "radius": 6,
+        "depth": 70,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "82f0fe0879b572c76a1a1c61ca7874a4c93e5abe",
+      "short": "82f0fe0",
+      "parents": "e2661f5e50b7c5f39b2acdaf10721ae8604b73af",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:27:08+01:00",
+      "timestamp": 1766410028,
+      "subject": "Bash-Refactor: Dashboard CSS styling",
+      "refs": "",
+      "position": {
+        "x": -2880,
+        "y": 5180,
+        "lane": -29,
+        "radius": 6,
+        "depth": 71,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "515aeed25740735319e1d324c6cbdedf1ba9371e",
+      "short": "515aeed",
+      "parents": "95f5805da98086af9e93a455a23eb1154ce1f357",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:27:08+01:00",
+      "timestamp": 1766410028,
+      "subject": "Bash-Refactor: Dashboard CSS styling",
+      "refs": "",
+      "position": {
+        "x": 4200,
+        "y": 5260,
+        "lane": 30,
+        "radius": 6,
+        "depth": 72,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "e2661f5e50b7c5f39b2acdaf10721ae8604b73af",
+      "short": "e2661f5",
+      "parents": "f20698a734644290b7ea09857a7595d04b2a3d2f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:53+01:00",
+      "timestamp": 1766410013,
+      "subject": "Bash-Refactor: Web dashboard (HTML + D3/Plotly)",
+      "refs": "",
+      "position": {
+        "x": -3000,
+        "y": 5340,
+        "lane": -30,
+        "radius": 6,
+        "depth": 73,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "95f5805da98086af9e93a455a23eb1154ce1f357",
+      "short": "95f5805",
+      "parents": "a187cbe2fe43d2094c802e9ffa624024755111c5",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:53+01:00",
+      "timestamp": 1766410013,
+      "subject": "Bash-Refactor: Web dashboard (HTML + D3/Plotly)",
+      "refs": "",
+      "position": {
+        "x": 4320,
+        "y": 5420,
+        "lane": 31,
+        "radius": 6,
+        "depth": 74,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "f20698a734644290b7ea09857a7595d04b2a3d2f",
+      "short": "f20698a",
+      "parents": "73af8c28a4611644af21b349c5cc15f6036bb380",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:32+01:00",
+      "timestamp": 1766409992,
+      "subject": "Bash-Refactor: C++ analytics server (WebSocket, live metrics)",
+      "refs": "",
+      "position": {
+        "x": -3120,
+        "y": 5500,
+        "lane": -31,
+        "radius": 6,
+        "depth": 75,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "a187cbe2fe43d2094c802e9ffa624024755111c5",
+      "short": "a187cbe",
+      "parents": "b81e005a78d47a0b7ae57397c86644af2265e83e",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:32+01:00",
+      "timestamp": 1766409992,
+      "subject": "Bash-Refactor: C++ analytics server (WebSocket, live metrics)",
+      "refs": "",
+      "position": {
+        "x": 4440,
+        "y": 5580,
+        "lane": 32,
+        "radius": 6,
+        "depth": 76,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "73af8c28a4611644af21b349c5cc15f6036bb380",
+      "short": "73af8c2",
+      "parents": "1e6aac5b7708bf6ccef4075f7397d9bfc412b9b3",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:13+01:00",
+      "timestamp": 1766409973,
+      "subject": "Bash-Refactor: Main orchestrator CLI",
+      "refs": "",
+      "position": {
+        "x": -3240,
+        "y": 5660,
+        "lane": -32,
+        "radius": 6,
+        "depth": 77,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "b81e005a78d47a0b7ae57397c86644af2265e83e",
+      "short": "b81e005",
+      "parents": "797a496aeeb704eac68610f645283af69b0a690e",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:26:13+01:00",
+      "timestamp": 1766409973,
+      "subject": "Bash-Refactor: Main orchestrator CLI",
+      "refs": "",
+      "position": {
+        "x": 4560,
+        "y": 5740,
+        "lane": 33,
+        "radius": 6,
+        "depth": 78,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "1e6aac5b7708bf6ccef4075f7397d9bfc412b9b3",
+      "short": "1e6aac5",
+      "parents": "614fcc152a0ca61577ae974309b3284d38449484",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:25:49+01:00",
+      "timestamp": 1766409949,
+      "subject": "Bash-Refactor: Bleeding-edge native bioinformatics pipeline (2025)",
+      "refs": "",
+      "position": {
+        "x": -3360,
+        "y": 5820,
+        "lane": -33,
+        "radius": 6,
+        "depth": 79,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "797a496aeeb704eac68610f645283af69b0a690e",
+      "short": "797a496",
+      "parents": "7f51b95a8195e21bd04115766b3d03a95f065797",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-22T14:25:49+01:00",
+      "timestamp": 1766409949,
+      "subject": "Bash-Refactor: Bleeding-edge native bioinformatics pipeline (2025)",
+      "refs": "",
+      "position": {
+        "x": 4680,
+        "y": 5900,
+        "lane": 34,
+        "radius": 6,
+        "depth": 80,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "614fcc152a0ca61577ae974309b3284d38449484",
+      "short": "614fcc1",
+      "parents": "a353a116dce870715029f8ddbf4882583e2f8d2a 0efed4cef165d5f865e94f93e74da2f9f2446eee",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:30:32+01:00",
+      "timestamp": 1766341832,
+      "subject": "Merge pull request #5 from xaoscience/refactor",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 5980,
+        "lane": 0,
+        "radius": 10,
+        "depth": 81,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "7f51b95a8195e21bd04115766b3d03a95f065797",
+      "short": "7f51b95",
+      "parents": "0ae62ba5601c23cf1c14f6ca40d02da4fb1b9a3f 92434477cf4c73e69086e2d9a5c5e0909fbfd91d",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:30:32+01:00",
+      "timestamp": 1766341832,
+      "subject": "Merge pull request #5 from xaoscience/refactor",
+      "refs": "",
+      "position": {
+        "x": -3480,
+        "y": 6020,
+        "lane": -34,
+        "radius": 10,
+        "depth": 82,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "0efed4cef165d5f865e94f93e74da2f9f2446eee",
+      "short": "0efed4c",
+      "parents": "b2d1461f8ace579885502067fa726025f7e8a24a",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:21:04+01:00",
+      "timestamp": 1766341264,
+      "subject": "Refactor: Branch status and validation checklist",
+      "refs": "",
+      "position": {
+        "x": 4800,
+        "y": 6100,
+        "lane": 35,
+        "radius": 6,
+        "depth": 83,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "92434477cf4c73e69086e2d9a5c5e0909fbfd91d",
+      "short": "9243447",
+      "parents": "c0bd084ca3d4cb518aabc0e6de706dcefcd282ed",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:21:04+01:00",
+      "timestamp": 1766341264,
+      "subject": "Refactor: Branch status and validation checklist",
+      "refs": "",
+      "position": {
+        "x": -3600,
+        "y": 6180,
+        "lane": -35,
+        "radius": 6,
+        "depth": 84,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "b2d1461f8ace579885502067fa726025f7e8a24a",
+      "short": "b2d1461",
+      "parents": "abf40d850f3c9a80dba6a9e5bfb0f14d4d395baa",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:20:45+01:00",
+      "timestamp": 1766341245,
+      "subject": "Refactor: Comprehensive architecture & implementation documentation",
+      "refs": "",
+      "position": {
+        "x": 4920,
+        "y": 6260,
+        "lane": 36,
+        "radius": 6,
+        "depth": 85,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "c0bd084ca3d4cb518aabc0e6de706dcefcd282ed",
+      "short": "c0bd084",
+      "parents": "2215b60d812860f44b6351e4de3fc1fef48e80a7",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:20:45+01:00",
+      "timestamp": 1766341245,
+      "subject": "Refactor: Comprehensive architecture & implementation documentation",
+      "refs": "",
+      "position": {
+        "x": -3720,
+        "y": 6340,
+        "lane": -36,
+        "radius": 6,
+        "depth": 86,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "abf40d850f3c9a80dba6a9e5bfb0f14d4d395baa",
+      "short": "abf40d8",
+      "parents": "6a59793e41a0b57e84764c04b85191f480dc7bd2",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:20:14+01:00",
+      "timestamp": 1766341214,
+      "subject": "Refactor: CLI entrypoint with modular commands",
+      "refs": "",
+      "position": {
+        "x": 5040,
+        "y": 6420,
+        "lane": 37,
+        "radius": 6,
+        "depth": 87,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "2215b60d812860f44b6351e4de3fc1fef48e80a7",
+      "short": "2215b60",
+      "parents": "b735e609909cf706ddfaa8b4a16f9e7c49d9415d",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:20:14+01:00",
+      "timestamp": 1766341214,
+      "subject": "Refactor: CLI entrypoint with modular commands",
+      "refs": "",
+      "position": {
+        "x": -3840,
+        "y": 6500,
+        "lane": -37,
+        "radius": 6,
+        "depth": 88,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "6a59793e41a0b57e84764c04b85191f480dc7bd2",
+      "short": "6a59793",
+      "parents": "dd645629a55463b5536fd096b3b5e2ea5cfa089c",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:58+01:00",
+      "timestamp": 1766341198,
+      "subject": "Refactor: Phylogenetic module - neighbor-joining tree construction",
+      "refs": "",
+      "position": {
+        "x": 5160,
+        "y": 6580,
+        "lane": 38,
+        "radius": 6,
+        "depth": 89,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "b735e609909cf706ddfaa8b4a16f9e7c49d9415d",
+      "short": "b735e60",
+      "parents": "45622ca03b1e703a9eace46c0e48a32b3122c42c",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:58+01:00",
+      "timestamp": 1766341198,
+      "subject": "Refactor: Phylogenetic module - neighbor-joining tree construction",
+      "refs": "",
+      "position": {
+        "x": -3960,
+        "y": 6660,
+        "lane": -38,
+        "radius": 6,
+        "depth": 90,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "dd645629a55463b5536fd096b3b5e2ea5cfa089c",
+      "short": "dd64562",
+      "parents": "7d0db21aeb5f71730935b10ca132e99d96615701",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:42+01:00",
+      "timestamp": 1766341182,
+      "subject": "Refactor: Taxonomy assignment module (k-mer, exact match methods)",
+      "refs": "",
+      "position": {
+        "x": 5280,
+        "y": 6740,
+        "lane": 39,
+        "radius": 6,
+        "depth": 91,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "45622ca03b1e703a9eace46c0e48a32b3122c42c",
+      "short": "45622ca",
+      "parents": "a965be60a12bade5b5b69f1f454a0b326e5733fb",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:42+01:00",
+      "timestamp": 1766341182,
+      "subject": "Refactor: Taxonomy assignment module (k-mer, exact match methods)",
+      "refs": "",
+      "position": {
+        "x": -4080,
+        "y": 6820,
+        "lane": -39,
+        "radius": 6,
+        "depth": 92,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "7d0db21aeb5f71730935b10ca132e99d96615701",
+      "short": "7d0db21",
+      "parents": "3b216856a695a4d1baf58cc12f1e49a22440aaac",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:24+01:00",
+      "timestamp": 1766341164,
+      "subject": "Refactor: Denoising module - pure Python ASV inference",
+      "refs": "",
+      "position": {
+        "x": 5400,
+        "y": 6900,
+        "lane": 40,
+        "radius": 6,
+        "depth": 93,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "a965be60a12bade5b5b69f1f454a0b326e5733fb",
+      "short": "a965be6",
+      "parents": "ab6ba30534125fad55aa99bf3d27d010a6e2b42f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:24+01:00",
+      "timestamp": 1766341164,
+      "subject": "Refactor: Denoising module - pure Python ASV inference",
+      "refs": "",
+      "position": {
+        "x": -4200,
+        "y": 6980,
+        "lane": -40,
+        "radius": 6,
+        "depth": 94,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "3b216856a695a4d1baf58cc12f1e49a22440aaac",
+      "short": "3b21685",
+      "parents": "ae7fac2cb6d2425f1ddc90288f00fdec202cbfdb",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:09+01:00",
+      "timestamp": 1766341149,
+      "subject": "Refactor: QC module - pure Python DADA2-inspired filtering",
+      "refs": "",
+      "position": {
+        "x": 5520,
+        "y": 7060,
+        "lane": 41,
+        "radius": 6,
+        "depth": 95,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ab6ba30534125fad55aa99bf3d27d010a6e2b42f",
+      "short": "ab6ba30",
+      "parents": "5d2042b3435710086c402fc8f1b5d6e475109057",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:19:09+01:00",
+      "timestamp": 1766341149,
+      "subject": "Refactor: QC module - pure Python DADA2-inspired filtering",
+      "refs": "",
+      "position": {
+        "x": -4320,
+        "y": 7140,
+        "lane": -41,
+        "radius": 6,
+        "depth": 96,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "ae7fac2cb6d2425f1ddc90288f00fdec202cbfdb",
+      "short": "ae7fac2",
+      "parents": "085a561becb5c163e22e555b48295eef2116e8ca",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:52+01:00",
+      "timestamp": 1766341132,
+      "subject": "Refactor: Safe Entrez fetching with XXE protection",
+      "refs": "",
+      "position": {
+        "x": 5640,
+        "y": 7220,
+        "lane": 42,
+        "radius": 6,
+        "depth": 97,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "5d2042b3435710086c402fc8f1b5d6e475109057",
+      "short": "5d2042b",
+      "parents": "28169cc779684af0906a034a4c4b67ae0b914e0b",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:52+01:00",
+      "timestamp": 1766341132,
+      "subject": "Refactor: Safe Entrez fetching with XXE protection",
+      "refs": "",
+      "position": {
+        "x": -4440,
+        "y": 7300,
+        "lane": -42,
+        "radius": 6,
+        "depth": 98,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "085a561becb5c163e22e555b48295eef2116e8ca",
+      "short": "085a561",
+      "parents": "7991f4be48e35bb05ef15cc838fd34d2852bfa12",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:38+01:00",
+      "timestamp": 1766341118,
+      "subject": "Refactor: I/O module with documented bioinformatics methods",
+      "refs": "",
+      "position": {
+        "x": 5760,
+        "y": 7380,
+        "lane": 43,
+        "radius": 6,
+        "depth": 99,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "28169cc779684af0906a034a4c4b67ae0b914e0b",
+      "short": "28169cc",
+      "parents": "d2a5106198b6c1c3d33222c38240373cbd0f7248",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:38+01:00",
+      "timestamp": 1766341118,
+      "subject": "Refactor: I/O module with documented bioinformatics methods",
+      "refs": "",
+      "position": {
+        "x": -4560,
+        "y": 7460,
+        "lane": -43,
+        "radius": 6,
+        "depth": 100,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "7991f4be48e35bb05ef15cc838fd34d2852bfa12",
+      "short": "7991f4b",
+      "parents": "7b1939030f7c4fc6fa5fee8419adcc5ac5e18406",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:22+01:00",
+      "timestamp": 1766341102,
+      "subject": "Refactor: Nucleid profile configuration system (scalable)",
+      "refs": "",
+      "position": {
+        "x": 5880,
+        "y": 7540,
+        "lane": 44,
+        "radius": 6,
+        "depth": 101,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "d2a5106198b6c1c3d33222c38240373cbd0f7248",
+      "short": "d2a5106",
+      "parents": "2d4bc57bbd4cb2cf9a0372a389e8626b6f447062",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:22+01:00",
+      "timestamp": 1766341102,
+      "subject": "Refactor: Nucleid profile configuration system (scalable)",
+      "refs": "",
+      "position": {
+        "x": -4680,
+        "y": 7620,
+        "lane": -44,
+        "radius": 6,
+        "depth": 102,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "7b1939030f7c4fc6fa5fee8419adcc5ac5e18406",
+      "short": "7b19390",
+      "parents": "1e5b13985a84ae351505ca89418f2496959e5a8c",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:10+01:00",
+      "timestamp": 1766341090,
+      "subject": "Refactor: Core module with modular imports",
+      "refs": "",
+      "position": {
+        "x": 6000,
+        "y": 7700,
+        "lane": 45,
+        "radius": 6,
+        "depth": 103,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "2d4bc57bbd4cb2cf9a0372a389e8626b6f447062",
+      "short": "2d4bc57",
+      "parents": "94d8187be793d3c604cf554b65731425c3f0f727",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:10+01:00",
+      "timestamp": 1766341090,
+      "subject": "Refactor: Core module with modular imports",
+      "refs": "",
+      "position": {
+        "x": -4800,
+        "y": 7780,
+        "lane": -45,
+        "radius": 6,
+        "depth": 104,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "1e5b13985a84ae351505ca89418f2496959e5a8c",
+      "short": "1e5b139",
+      "parents": "c86f68c095eb05b3f1b9e51e01265751c1485c58",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:03+01:00",
+      "timestamp": 1766341083,
+      "subject": "Refactor: Update requirements - remove R, add defusedxml XXE fix, bump Biopython",
+      "refs": "",
+      "position": {
+        "x": 6120,
+        "y": 7860,
+        "lane": 46,
+        "radius": 6,
+        "depth": 105,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "94d8187be793d3c604cf554b65731425c3f0f727",
+      "short": "94d8187",
+      "parents": "180f5d6a5b8342b8f2811becab992807505fd33f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:18:03+01:00",
+      "timestamp": 1766341083,
+      "subject": "Refactor: Update requirements - remove R, add defusedxml XXE fix, bump Biopython",
+      "refs": "",
+      "position": {
+        "x": -4920,
+        "y": 7940,
+        "lane": -46,
+        "radius": 6,
+        "depth": 106,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "c86f68c095eb05b3f1b9e51e01265751c1485c58",
+      "short": "c86f68c",
+      "parents": "a353a116dce870715029f8ddbf4882583e2f8d2a",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:17:30+01:00",
+      "timestamp": 1766341050,
+      "subject": "Refactor: Setup package as installable Python application",
+      "refs": "",
+      "position": {
+        "x": 6240,
+        "y": 8020,
+        "lane": 47,
+        "radius": 6,
+        "depth": 107,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "180f5d6a5b8342b8f2811becab992807505fd33f",
+      "short": "180f5d6",
+      "parents": "0ae62ba5601c23cf1c14f6ca40d02da4fb1b9a3f",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T19:17:30+01:00",
+      "timestamp": 1766341050,
+      "subject": "Refactor: Setup package as installable Python application",
+      "refs": "",
+      "position": {
+        "x": -5040,
+        "y": 8100,
+        "lane": -47,
+        "radius": 6,
+        "depth": 108,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "a353a116dce870715029f8ddbf4882583e2f8d2a",
+      "short": "a353a11",
+      "parents": "4e74dce45a3e7bcb9700b7a1df8265f3a198360e cd7763e3a67964627dfdfd102c4a1fd815dfb245",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T18:59:25+01:00",
+      "timestamp": 1766339965,
+      "subject": "Merge pull request #1 from xaoscience/dependabot/github_actions/actions/checkout-6",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 8180,
+        "lane": 0,
+        "radius": 10,
+        "depth": 109,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "0ae62ba5601c23cf1c14f6ca40d02da4fb1b9a3f",
+      "short": "0ae62ba",
+      "parents": "6abd28586d9169371746b52596910b2168e91938 4ee89f79c91542fa3e7eb962cbfc95f1cfc67b82",
+      "author": "χαος",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T18:59:25+01:00",
+      "timestamp": 1766339965,
+      "subject": "Merge pull request #1 from xaoscience/dependabot/github_actions/actions/checkout-6",
+      "refs": "",
+      "position": {
+        "x": 6360,
+        "y": 8220,
+        "lane": 48,
+        "radius": 10,
+        "depth": 110,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "4e74dce45a3e7bcb9700b7a1df8265f3a198360e",
+      "short": "4e74dce",
+      "parents": "6954cde1e7cb963a26d6c4b1171ea4651259bee2 c20e75d44eeea8166fd3679a62c53474a5729d9e",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:46Z",
+      "timestamp": 1766338966,
+      "subject": "Merge pull request #4 from xaoscience/dependabot/pip/jupyter-68f4446fcb",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 8300,
+        "lane": 0,
+        "radius": 10,
+        "depth": 111,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "6abd28586d9169371746b52596910b2168e91938",
+      "short": "6abd285",
+      "parents": "90efd06bbec84fb974803fc06a255f2c221e94b8 c2f9be17a93681c22a723cdb47311ace027acf9c",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:46Z",
+      "timestamp": 1766338966,
+      "subject": "Merge pull request #4 from xaoscience/dependabot/pip/jupyter-68f4446fcb",
+      "refs": "",
+      "position": {
+        "x": -5160,
+        "y": 8340,
+        "lane": -48,
+        "radius": 10,
+        "depth": 112,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "6954cde1e7cb963a26d6c4b1171ea4651259bee2",
+      "short": "6954cde",
+      "parents": "f3b395dc311f7b4cf90ea17b1b24ded28f76be61 e228c45fa2672b1232f93d62fc95af50b763a169",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:35Z",
+      "timestamp": 1766338955,
+      "subject": "Merge pull request #3 from xaoscience/dependabot/pip/data-science-d96427fa6b",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 8420,
+        "lane": 0,
+        "radius": 10,
+        "depth": 113,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "90efd06bbec84fb974803fc06a255f2c221e94b8",
+      "short": "90efd06",
+      "parents": "052c3f9b329dc59a8b714ace74aa039aaebd728f 75b225f056619dc65f88ace7a36674e557737901",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:35Z",
+      "timestamp": 1766338955,
+      "subject": "Merge pull request #3 from xaoscience/dependabot/pip/data-science-d96427fa6b",
+      "refs": "",
+      "position": {
+        "x": 6480,
+        "y": 8460,
+        "lane": 49,
+        "radius": 10,
+        "depth": 114,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "c20e75d44eeea8166fd3679a62c53474a5729d9e",
+      "short": "c20e75d",
+      "parents": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:33Z",
+      "timestamp": 1766338953,
+      "subject": "chore(deps)(deps): bump notebook in the jupyter group",
+      "refs": "",
+      "position": {
+        "x": -5280,
+        "y": 8540,
+        "lane": -49,
+        "radius": 6,
+        "depth": 115,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "c2f9be17a93681c22a723cdb47311ace027acf9c",
+      "short": "c2f9be1",
+      "parents": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:33Z",
+      "timestamp": 1766338953,
+      "subject": "chore(deps)(deps): bump notebook in the jupyter group",
+      "refs": "",
+      "position": {
+        "x": 6600,
+        "y": 8620,
+        "lane": 50,
+        "radius": 6,
+        "depth": 116,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "e228c45fa2672b1232f93d62fc95af50b763a169",
+      "short": "e228c45",
+      "parents": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:20Z",
+      "timestamp": 1766338940,
+      "subject": "chore(deps)(deps): bump numpy in the data-science group",
+      "refs": "",
+      "position": {
+        "x": -5400,
+        "y": 8700,
+        "lane": -50,
+        "radius": 6,
+        "depth": 117,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "75b225f056619dc65f88ace7a36674e557737901",
+      "short": "75b225f",
+      "parents": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:20Z",
+      "timestamp": 1766338940,
+      "subject": "chore(deps)(deps): bump numpy in the data-science group",
+      "refs": "",
+      "position": {
+        "x": 6720,
+        "y": 8780,
+        "lane": 51,
+        "radius": 6,
+        "depth": 118,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "f3b395dc311f7b4cf90ea17b1b24ded28f76be61",
+      "short": "f3b395d",
+      "parents": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9 e157b67868c8f841de4e59cf5ba89054d3e003d8",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:15Z",
+      "timestamp": 1766338935,
+      "subject": "Merge pull request #2 from xaoscience/dependabot/github_actions/actions/github-script-8",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 8860,
+        "lane": 0,
+        "radius": 10,
+        "depth": 119,
+        "is_trunk": true,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "052c3f9b329dc59a8b714ace74aa039aaebd728f",
+      "short": "052c3f9",
+      "parents": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a 62810a379d563712dac614160fd1f3a35d2115ea",
+      "author": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:15Z",
+      "timestamp": 1766338935,
+      "subject": "Merge pull request #2 from xaoscience/dependabot/github_actions/actions/github-script-8",
+      "refs": "",
+      "position": {
+        "x": -5520,
+        "y": 8900,
+        "lane": -51,
+        "radius": 10,
+        "depth": 120,
+        "is_trunk": false,
+        "is_merge": true,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "e157b67868c8f841de4e59cf5ba89054d3e003d8",
+      "short": "e157b67",
+      "parents": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:01Z",
+      "timestamp": 1766338921,
+      "subject": "deps(deps): bump actions/github-script from 7 to 8",
+      "refs": "",
+      "position": {
+        "x": 6840,
+        "y": 8980,
+        "lane": 52,
+        "radius": 6,
+        "depth": 121,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "62810a379d563712dac614160fd1f3a35d2115ea",
+      "short": "62810a3",
+      "parents": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:01Z",
+      "timestamp": 1766338921,
+      "subject": "deps(deps): bump actions/github-script from 7 to 8",
+      "refs": "",
+      "position": {
+        "x": -5640,
+        "y": 9060,
+        "lane": -52,
+        "radius": 6,
+        "depth": 122,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "cd7763e3a67964627dfdfd102c4a1fd815dfb245",
+      "short": "cd7763e",
+      "parents": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:00Z",
+      "timestamp": 1766338920,
+      "subject": "deps(deps): bump actions/checkout from 4 to 6",
+      "refs": "",
+      "position": {
+        "x": 6960,
+        "y": 9140,
+        "lane": 53,
+        "radius": 6,
+        "depth": 123,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "4ee89f79c91542fa3e7eb962cbfc95f1cfc67b82",
+      "short": "4ee89f7",
+      "parents": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a",
+      "author": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2025-12-21T17:42:00Z",
+      "timestamp": 1766338920,
+      "subject": "deps(deps): bump actions/checkout from 4 to 6",
+      "refs": "",
+      "position": {
+        "x": -5760,
+        "y": 9220,
+        "lane": -53,
+        "radius": 6,
+        "depth": 124,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": false
+      }
+    },
+    {
+      "sha": "3049af8fd19209e67a0e19827dc43fc6d5ef42f9",
+      "short": "3049af8",
+      "parents": "",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T17:41:17Z",
+      "timestamp": 1766338877,
+      "subject": "Initial commit",
+      "refs": "",
+      "position": {
+        "x": 600,
+        "y": 9300,
+        "lane": 0,
+        "radius": 9,
+        "depth": 125,
+        "is_trunk": true,
+        "is_merge": false,
+        "is_fork": true
+      }
+    },
+    {
+      "sha": "1fd560a21c882a3b79fc412d19f65c51c16b0b5a",
+      "short": "1fd560a",
+      "parents": "",
+      "author": "xaoscience",
+      "email": "69734795+xaoscience@users.noreply.github.com",
+      "date": "2025-12-21T17:41:17Z",
+      "timestamp": 1766338877,
+      "subject": "Initial commit",
+      "refs": "",
+      "position": {
+        "x": 7080,
+        "y": 9340,
+        "lane": 54,
+        "radius": 9,
+        "depth": 126,
+        "is_trunk": false,
+        "is_merge": false,
+        "is_fork": true
+      }
+    }
+  ],
+  "branches": [
+    {
+      "name": "980f73be9d4bdbeb8397f82aeaf29d475613d9b9 Merge pull request #13 from XAOSTECH/dependabot/github_actions/actions/upload-artifact-7",
+      "sha": "*",
+      "current": false,
+      "merged": false
+    }
+  ],
+  "tags": []
+}
+;
+
+        const canvas = document.getElementById('treeCanvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        const viewport = document.getElementById('viewport');
+        const statsEl = document.getElementById('stats');
+
+        let animationEnabled = true;
+        let windEnabled = true;
+        let frame = 0;
+        let hoveredCommit = null;
+        let selectedCommit = null;
+
+        // Build lookup maps
+        const commitBySha = {};
+        gitData.commits.forEach(c => { commitBySha[c.sha] = c; });
+
+        // Build tag lookup
+        const tagsBySha = {};
+        (gitData.tags || []).forEach(t => {
+            if (!tagsBySha[t.sha]) tagsBySha[t.sha] = [];
+            tagsBySha[t.sha].push(t.name);
+        });
+
+        // Build branch lookup
+        const branchBySha = {};
+        (gitData.branches || []).forEach(b => {
+            if (!branchBySha[b.sha]) branchBySha[b.sha] = [];
+            branchBySha[b.sha].push(b.name);
+        });
+
+        // Stats
+        const mergeCount = gitData.commits.filter(c => c.position && c.position.is_merge).length;
+        const forkCount = gitData.commits.filter(c => c.position && c.position.is_fork).length;
+        statsEl.textContent = `${gitData.commits.length} commits · ${mergeCount} merges · ${forkCount} forks · ${(gitData.tags || []).length} tags`;
+
+        // Branch colours (consistent per lane)
+        const LANE_COLOURS = [
+            '#4ade80', '#60a5fa', '#f472b6', '#fb923c', '#a78bfa',
+            '#34d399', '#fbbf24', '#f87171', '#38bdf8', '#c084fc',
+            '#2dd4bf', '#e879f9', '#facc15', '#818cf8', '#fb7185'
+        ];
+        function laneColour(lane) {
+            if (lane === 0) return '#4ade80'; // trunk green
+            const idx = ((Math.abs(lane) - 1) % (LANE_COLOURS.length - 1)) + 1;
+            return LANE_COLOURS[idx];
+        }
+
+        // Get ancestry chain for highlighting
+        function getAncestry(commit) {
+            const shas = new Set();
+            const queue = [commit.sha];
+            let limit = 500;
+            while (queue.length > 0 && limit-- > 0) {
+                const sha = queue.shift();
+                if (shas.has(sha)) continue;
+                shas.add(sha);
+                const c = commitBySha[sha];
+                if (c && c.parents) {
+                    c.parents.split(' ').filter(Boolean).forEach(p => queue.push(p));
+                }
+            }
+            return shas;
+        }
+
+        let ancestryHighlight = null;
+
+        // Wind intensity multiplier (0-5, default 1.0)
+        let windIntensity = 1.0;
+
+        function updateWindIntensity(val) {
+            windIntensity = val / 100;
+            document.getElementById('windVal').textContent = val + '%';
+            if (!animationEnabled) drawTree();
+        }
+
+        // Wind simulation — intensified base amplitudes
+        function windOffset(x, y, t) {
+            if (!windEnabled) return 0;
+            const s = windIntensity;
+            const w1 = Math.sin(t * 0.02 + x * 0.008 + y * 0.003) * 6 * s;
+            const w2 = Math.sin(t * 0.035 + x * 0.012 - y * 0.005) * 3 * s;
+            const w3 = Math.cos(t * 0.015 + y * 0.007) * 4 * s;
+            return w1 + w2 + w3;
+        }
+
+        function drawTree() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dark background with subtle gradient
+            const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bg.addColorStop(0, '#0a0a1a');
+            bg.addColorStop(0.5, '#0d0d20');
+            bg.addColorStop(1, '#080818');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Subtle grid
+            ctx.strokeStyle = 'rgba(60, 60, 100, 0.08)';
+            ctx.lineWidth = 0.5;
+            for (let y = 0; y < canvas.height; y += 80) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // ---- Draw branch connection lines ----
+            gitData.commits.forEach(commit => {
+                if (!commit.position || !commit.parents) return;
+                const parents = commit.parents.split(' ').filter(Boolean);
+                parents.forEach(parentSha => {
+                    const parent = commitBySha[parentSha];
+                    if (!parent || !parent.position) return;
+
+                    const cx = commit.position.x + windOffset(commit.position.x, commit.position.y, frame);
+                    const cy = commit.position.y;
+                    const px = parent.position.x + windOffset(parent.position.x, parent.position.y, frame);
+                    const py = parent.position.y;
+
+                    const colour = laneColour(commit.position.lane);
+                    const isHighlighted = ancestryHighlight && ancestryHighlight.has(commit.sha) && ancestryHighlight.has(parentSha);
+
+                    ctx.strokeStyle = isHighlighted ? colour : (colour + '40');
+                    ctx.lineWidth = isHighlighted ? 2.5 : 1.5;
+
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+
+                    if (commit.position.lane !== parent.position.lane) {
+                        // Curved branch/merge line
+                        const cpx1 = cx;
+                        const cpy1 = cy + (py - cy) * 0.4;
+                        const cpx2 = px;
+                        const cpy2 = cy + (py - cy) * 0.6;
+                        ctx.bezierCurveTo(cpx1, cpy1, cpx2, cpy2, px, py);
+                    } else {
+                        // Straight trunk line
+                        ctx.lineTo(px, py);
+                    }
+                    ctx.stroke();
+                });
+            });
+
+            // ---- Draw commit nodes (leaves) ----
+            gitData.commits.forEach(commit => {
+                if (!commit.position) return;
+                const pos = commit.position;
+                const isHovered = hoveredCommit === commit;
+                const isSelected = selectedCommit === commit;
+                const isInAncestry = ancestryHighlight && ancestryHighlight.has(commit.sha);
+                const hasTags = tagsBySha[commit.sha];
+                const hasBranch = branchBySha[commit.sha];
+
+                // Wind wobble on leaves
+                const wobble = windOffset(pos.x, pos.y, frame);
+                const x = pos.x + wobble;
+                const y = pos.y;
+
+                let baseRadius = pos.radius || 6;
+                if (hasTags) baseRadius = Math.max(baseRadius, 9);
+                const radius = isHovered ? baseRadius * 1.8 : (isSelected ? baseRadius * 1.5 : baseRadius);
+
+                // Choose colour
+                let fillColour;
+                if (hasTags) fillColour = '#38bdf8';
+                else if (pos.is_merge) fillColour = '#c084fc';
+                else if (pos.is_fork) fillColour = '#fb923c';
+                else fillColour = laneColour(pos.lane);
+
+                const dimmed = ancestryHighlight && !isInAncestry;
+                const alpha = dimmed ? 0.15 : 1;
+
+                // Glow for hovered/selected
+                if ((isHovered || isSelected) && !dimmed) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.25;
+                    ctx.shadowColor = fillColour;
+                    ctx.shadowBlur = 20;
+                    ctx.fillStyle = fillColour;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Leaf shape: draw a tiny leaf silhouette for non-merge commits
+                ctx.save();
+                ctx.globalAlpha = alpha;
+
+                if (!pos.is_merge && !hasTags && animationEnabled) {
+                    // Organic leaf shape
+                    const leafAngle = Math.sin(frame * 0.025 + pos.x * 0.01) * 0.3 + wobble * 0.05;
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(leafAngle);
+
+                    // Leaf body
+                    ctx.beginPath();
+                    ctx.moveTo(0, -radius * 1.2);
+                    ctx.bezierCurveTo(radius * 0.8, -radius * 0.4, radius * 0.8, radius * 0.6, 0, radius * 1.2);
+                    ctx.bezierCurveTo(-radius * 0.8, radius * 0.6, -radius * 0.8, -radius * 0.4, 0, -radius * 1.2);
+                    ctx.fillStyle = fillColour;
+                    ctx.fill();
+
+                    // Leaf vein
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -radius * 0.8);
+                    ctx.lineTo(0, radius * 0.8);
+                    ctx.stroke();
+
+                    ctx.restore();
+                } else {
+                    // Circle for merges, tags, or when animation is off
+                    const grad = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 0, x, y, radius);
+                    grad.addColorStop(0, fillColour);
+                    grad.addColorStop(1, fillColour + 'aa');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Outline
+                    ctx.strokeStyle = isHovered ? '#fbbf24' : 'rgba(255,255,255,0.15)';
+                    ctx.lineWidth = isHovered ? 2 : 1;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+
+                // Tag/branch labels
+                if (!dimmed && (hasTags || hasBranch)) {
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    const labels = [];
+                    if (hasTags) hasTags.forEach(t => labels.push({ text: '🏷 ' + t, colour: '#38bdf8' }));
+                    if (hasBranch) hasBranch.forEach(b => labels.push({ text: '⎇ ' + b, colour: '#34d399' }));
+
+                    labels.forEach((lbl, li) => {
+                        const lx = x + radius + 8;
+                        const ly = y + 4 + li * 16;
+                        ctx.font = 'bold 10px system-ui, sans-serif';
+                        const metrics = ctx.measureText(lbl.text);
+                        // Label background
+                        ctx.fillStyle = 'rgba(10, 10, 30, 0.85)';
+                        ctx.beginPath();
+                        ctx.roundRect(lx - 4, ly - 11, metrics.width + 8, 15, 3);
+                        ctx.fill();
+                        ctx.fillStyle = lbl.colour;
+                        ctx.fillText(lbl.text, lx, ly);
+                    });
+                    ctx.restore();
+                }
+            });
+
+            if (animationEnabled) {
+                frame++;
+                requestAnimationFrame(drawTree);
+            }
+        }
+
+        // Handle mouse movement for tooltip — positioned close to cursor
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            // Account for scroll within viewport
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            let found = null;
+            let bestDist = Infinity;
+            gitData.commits.forEach(commit => {
+                if (!commit.position) return;
+                const wx = windOffset(commit.position.x, commit.position.y, frame);
+                const dx = mouseX - (commit.position.x + wx);
+                const dy = mouseY - commit.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const hitRadius = Math.max((commit.position.radius || 6) * 2, 12);
+                if (distance < hitRadius && distance < bestDist) {
+                    bestDist = distance;
+                    found = commit;
+                }
+            });
+
+            if (found !== hoveredCommit) {
+                hoveredCommit = found;
+                if (!animationEnabled) drawTree();
+            }
+
+            if (hoveredCommit) {
+                tooltip.querySelector('.tooltip-sha').textContent = hoveredCommit.short;
+                tooltip.querySelector('.tooltip-msg').textContent = hoveredCommit.subject;
+                tooltip.querySelector('.tooltip-author').textContent = `by ${hoveredCommit.author}`;
+                tooltip.querySelector('.tooltip-date').textContent = new Date(hoveredCommit.date).toLocaleString();
+
+                const refs = [];
+                if (tagsBySha[hoveredCommit.sha]) refs.push(...tagsBySha[hoveredCommit.sha].map(t => '🏷 ' + t));
+                if (branchBySha[hoveredCommit.sha]) refs.push(...branchBySha[hoveredCommit.sha].map(b => '⎇ ' + b));
+                tooltip.querySelector('.tooltip-refs').textContent = refs.join('  ');
+
+                // Position tooltip near cursor but keep within viewport
+                let tx = e.clientX + 16;
+                let ty = e.clientY + 16;
+                const tw = tooltip.offsetWidth || 300;
+                const th = tooltip.offsetHeight || 100;
+                if (tx + tw > window.innerWidth - 10) tx = e.clientX - tw - 16;
+                if (ty + th > window.innerHeight - 10) ty = e.clientY - th - 16;
+                if (tx < 10) tx = 10;
+                if (ty < 10) ty = 10;
+                tooltip.style.left = tx + 'px';
+                tooltip.style.top = ty + 'px';
+                tooltip.classList.add('visible');
+            } else {
+                tooltip.classList.remove('visible');
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            hoveredCommit = null;
+            tooltip.classList.remove('visible');
+            if (!animationEnabled) drawTree();
+        });
+
+        // Click to highlight ancestry; Ctrl+click or middle-click opens commit page
+        const repoUrl = (gitData.metadata && gitData.metadata.repo_url) || '';
+        canvas.addEventListener('click', (e) => {
+            if (hoveredCommit) {
+                if (e.ctrlKey || e.metaKey) {
+                    // Open commit page in new tab
+                    if (repoUrl) {
+                        window.open(repoUrl + '/commit/' + hoveredCommit.sha, '_blank', 'noopener');
+                    }
+                    return;
+                }
+                if (selectedCommit === hoveredCommit) {
+                    selectedCommit = null;
+                    ancestryHighlight = null;
+                } else {
+                    selectedCommit = hoveredCommit;
+                    ancestryHighlight = getAncestry(hoveredCommit);
+                }
+            } else {
+                selectedCommit = null;
+                ancestryHighlight = null;
+            }
+            if (!animationEnabled) drawTree();
+        });
+
+        canvas.addEventListener('auxclick', (e) => {
+            if (e.button === 1 && hoveredCommit && repoUrl) {
+                e.preventDefault();
+                window.open(repoUrl + '/commit/' + hoveredCommit.sha, '_blank', 'noopener');
+            }
+        });
+
+        function resetView() {
+            frame = 0;
+            hoveredCommit = null;
+            selectedCommit = null;
+            ancestryHighlight = null;
+            viewport.scrollTop = 0;
+            drawTree();
+        }
+
+        function toggleAnimation() {
+            animationEnabled = !animationEnabled;
+            if (animationEnabled) drawTree();
+        }
+
+        function toggleWind() {
+            windEnabled = !windEnabled;
+            if (!animationEnabled) drawTree();
+        }
+
+        // Initial draw
+        drawTree();
+    </script>
+</body>
+</html>
