@@ -454,8 +454,6 @@ See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 <!-- TREE-VIZ-START -->
 
-## Git Tree Visualisation
-
 ![Git Tree Visualisation](.github/tree-viz/git-tree-mini.svg)
 
 [Full SVG](.github/tree-viz/git-tree.svg) · [Interactive version](.github/tree-viz/git-tree.html) · [View data](.github/tree-viz/git-tree-data.json)
