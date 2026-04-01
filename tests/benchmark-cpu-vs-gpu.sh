@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Color codes
+# Colour codes
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
@@ -45,7 +45,7 @@ echo ""
 # Create benchmark directory
 mkdir -p "$BENCHMARK_DIR"
 
-# Initialize results CSV
+# Initialise results CSV
 if [ ! -f "$RESULTS_CSV" ]; then
     cat > "$RESULTS_CSV" << 'EOF'
 timestamp,test_name,implementation,data_size,execution_time_seconds,sequences_processed,throughput_seqs_per_sec,gpu_available,gpu_memory_used_mb,speedup_factor

@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Initialize CodeQL using repo config
+      - name: Initialise CodeQL using repo config
         uses: github/codeql-action/init@v4
         with:
           config-file: .github/codeql/codeql-config.yml
