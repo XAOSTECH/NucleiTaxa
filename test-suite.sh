@@ -15,7 +15,7 @@ TEST_OUTPUT="$TEST_DIR/test_output"
 PIPELINE_DIR="$TEST_DIR/pipeline"
 ANALYTICS_PORT=8889  # Use different port to avoid conflicts
 
-# Colors for output
+# Colours for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -228,9 +228,9 @@ EOF
     fi
 }
 
-# Test Stage 06: Visualization (mock)
+# Test Stage 06: Visualisation (mock)
 test_stage_06() {
-    test_info "Testing Stage 06: Visualization (mock)"
+    test_info "Testing Stage 06: Visualisation (mock)"
     
     local output_dir="$TEST_OUTPUT/stage01"
     local stage06_dir="$TEST_OUTPUT/stage01/06-viz"
@@ -249,8 +249,8 @@ EOF
 <html>
 <head><title>NucleiTaxa Krona Chart (Mock)</title></head>
 <body>
-<h1>Taxonomy Visualization</h1>
-<p>Mock Krona visualization for testing</p>
+<h1>Taxonomy Visualisation</h1>
+<p>Mock Krona visualisation for testing</p>
 <p>Bacteria: 220 sequences</p>
 <ul>
 <li>Firmicutes: 100</li>

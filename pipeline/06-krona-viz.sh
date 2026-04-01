@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ###############################################################################
-# NucleiTaxa Pipeline Stage 06: Interactive Taxonomy Visualization (Krona)
+# NucleiTaxa Pipeline Stage 06: Interactive Taxonomy Visualisation (Krona)
 # 
-# Krona v3.0 - Interactive HTML5 taxonomy visualization
+# Krona v3.0 - Interactive HTML5 taxonomy visualisation
 # - Hierarchical pie charts (Kingdom -> Phylum -> Class -> ...)
 # - Mouse-driven exploration, zoom functionality
 # - Standard output for QIIME2 and other bioinformatics platforms
@@ -73,7 +73,7 @@ fi
 mkdir -p "$OUTPUT_DIR/06-viz"
 LOG_FILE="$OUTPUT_DIR/06-viz/visualization.log"
 
-log_info "=== NucleiTaxa Stage 06: Interactive Visualization (Krona) ==="
+log_info "=== NucleiTaxa Stage 06: Interactive Visualisation (Krona) ==="
 log_info "Input:  $OUTPUT_DIR/04-taxonomy"
 log_info "Output: $OUTPUT_DIR/06-viz"
 log_info "Profile: $PROFILE"
@@ -252,15 +252,15 @@ log_success "Taxonomy summary written"
 
 # Stage 5: Create Krona documentation
 cat > "$OUTPUT_DIR/06-viz/KRONA_README.txt" << EOF
-=== Krona Interactive Visualization ===
+=== Krona Interactive Visualisation ===
 
-MAIN VISUALIZATION:
+MAIN VISUALISATION:
   Open "taxa_krona.html" in a web browser to explore taxonomy interactively
 
 HOW TO USE:
   1. Click on pie slices to zoom into that taxon
   2. Hover over slices to see counts and percentages
-  3. Click center circle to zoom out
+  3. Click centre circle to zoom out
   4. Right-click for menu options (export, etc.)
 
 PER-SAMPLE VIEWS:
@@ -269,7 +269,7 @@ PER-SAMPLE VIEWS:
 FEATURES:
   - Hierarchical taxonomy from Kingdom to Genus
   - Mouse-driven navigation
-  - Color-coded by taxonomy level
+  - Colour-coded by taxonomy level
   - Abundance counts displayed
   - Export-friendly HTML (standalone, no dependencies)
 
@@ -302,13 +302,13 @@ else
     log_error "Krona chart appears empty or invalid"
 fi
 
-# Generate final visualization report
+# Generate final visualisation report
 cat > "$OUTPUT_DIR/06-viz/VISUALIZATION_REPORT.txt" << EOF
-=== Visualization Report ===
+=== Visualisation Report ===
 Timestamp: $(date)
 Profile: $PROFILE
 
-VISUALIZATION METHOD: Krona v3.0
+VISUALISATION METHOD: Krona v3.0
 Interactive HTML5-based taxonomy explorer
 Compatible with: QIIME2, PhyloSeq, microbiome standard tools
 
@@ -327,7 +327,7 @@ OUTPUTS GENERATED:
      - Top phyla abundance list
   
   4. krona_input.txt (raw Krona input format)
-     - Reusable for further customization
+     - Reusable for further customisation
 
 ACCESSING RESULTS:
   - Open "taxa_krona.html" in any modern web browser
@@ -338,7 +338,7 @@ INTERPRETATION:
   - Innermost circle = Kingdom (usually Bacteria/Archaea)
   - Outward circles = progressive taxonomy levels
   - Slice size = abundance of that taxon
-  - Colors = automatic assignment per level
+  - Colours = automatic assignment per level
 
 NEXT STEPS:
   Pipeline complete! Results ready for:
@@ -354,13 +354,13 @@ COMBINED ANALYSIS:
   - Taxonomy table (04-taxonomy/taxa_assignments.txt)
 
 For publication quality visualizations, consider:
-  - Custom Krona color schemes
+  - Custom Krona colour schemes
   - Export to PDF/PNG via browser
   - Integration with phylogenetic trees (PhyloSeq)
   - Statistical comparison of communities (QIIME2)
 EOF
 
-log_success "Visualization report written"
+log_success "Visualisation report written"
 
 # Emit completion metric
 emit_metric "visualization_complete" "1"
@@ -374,6 +374,6 @@ log_info "  - ASVs (denoised): 02-denoise/"
 log_info "  - Chimera QC: 03-chimera/"
 log_info "  - Taxonomy: 04-taxonomy/"
 log_info "  - Phylogenetic tree: 05-phylo/"
-log_info "  - Interactive visualization: 06-viz/taxa_krona.html"
+log_info "  - Interactive visualisation: 06-viz/taxa_krona.html"
 log_info ""
 log_info "Next: Open taxa_krona.html in browser or use QIIME2 for analysis"
