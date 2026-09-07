@@ -8,6 +8,17 @@
   },
   "commits": [
   {
+    "sha": "88871e5922aaa24625d9c3afc357b48edf613496",
+    "short": "88871e5",
+    "parents": "0cd9e6cefe82141a245199944d4ec8d9181d32ca",
+    "author": "xaos-bot",
+    "email": "262248812+xaos-bot@users.noreply.github.com",
+    "date": "2026-08-17T01:25:53Z",
+    "timestamp": 1786929953,
+    "subject": "chore: update git tree visualisation",
+    "refs": "HEAD -> main, origin/main"
+  },
+  {
     "sha": "0cd9e6cefe82141a245199944d4ec8d9181d32ca",
     "short": "0cd9e6c",
     "parents": "950052a74ae0a7472214ce49bd0aa8e1d363829e",
@@ -16,7 +27,7 @@
     "date": "2026-08-10T02:02:22Z",
     "timestamp": 1786327342,
     "subject": "chore: update git tree visualisation",
-    "refs": "HEAD -> main, origin/main"
+    "refs": ""
   },
   {
     "sha": "950052a74ae0a7472214ce49bd0aa8e1d363829e",
@@ -1879,7 +1890,7 @@
   }
 ],
   "branches": [
-  {"name":"0cd9e6cefe82141a245199944d4ec8d9181d32ca chore: update git tree visualisation","sha":"*","current":false,"merged":false}
+  {"name":"88871e5922aaa24625d9c3afc357b48edf613496 chore: update git tree visualisation","sha":"*","current":false,"merged":false}
 ],
   "tags": [
 
