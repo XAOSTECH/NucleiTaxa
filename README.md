@@ -82,7 +82,7 @@ Rscript -e "install.packages('BiocManager'); BiocManager::install('dada2')"
 ### View Results
 
 ```bash
-# Interactive taxonomy visualization
+# Interactive taxonomy visualisation
 open results/06-viz/taxa_krona.html
 
 # ASV abundance table
@@ -106,9 +106,9 @@ FASTQ Input
 [03] Chimera QC    → VSEARCH UCHIME hybrid detection (GPU-optional)
 [04] Taxonomy      → RDP Classifier (Bayesian)
 [05] Phylogenetics → FastTree 2 (ML tree, GPU-optional)
-[06] Visualization → Krona interactive charts
+[06] Visualisation → Krona interactive charts
     ↓
-Publication-Ready Tables + Interactive Visualization
+Publication-Ready Tables + Interactive Visualisation
 ```
 
 **Performance:** 
@@ -132,7 +132,7 @@ NucleiTaxa/
 │   ├── 03-chimera-vsearch.sh   # Hybrid chimera detection
 │   ├── 04-taxonomy-rdp.sh      # Taxonomy assignment
 │   ├── 05-phylo-fasttree.sh    # Phylogenetic tree
-│   └── 06-krona-viz.sh         # Interactive visualization
+│   └── 06-krona-viz.sh         # Interactive visualisation
 ├── analytics/
 │   ├── server/
 │   │   └── nucleitaxa-server.cpp  # C++ WebSocket backend
@@ -417,7 +417,7 @@ If you use NucleiTaxa in your research, please cite:
 
 ---
 
-## 📄 License
+## 📄 Licence
 
 GNU General Public License v3.0 (GPL-3.0) - See [LICENSE](LICENSE) file
 

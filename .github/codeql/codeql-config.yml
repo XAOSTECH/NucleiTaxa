@@ -10,7 +10,7 @@ on:
 
 jobs:
   # CodeQL analysis for supported languages
-  analyze:
+  analyse:
     name: CodeQL Analyze (${{ matrix.language }})
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
     permissions:
@@ -35,7 +35,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: Initialise CodeQL
         uses: github/codeql-action/init@v3
         with:
           # matrix.language is one of the languages above

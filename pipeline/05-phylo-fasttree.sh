@@ -4,7 +4,7 @@
 # NucleiTaxa Pipeline Stage 05: Phylogenetic Tree Construction
 # 
 # FastTree 2 (ultra-fast maximum-likelihood tree inference)
-# - 1000x faster than UPGMA or neighbor-joining
+# - 1000x faster than UPGMA or neighbour-joining
 # - Better accuracy for large alignments (10K+ sequences)
 # - Suitable for microbiome ASV trees
 #
@@ -141,7 +141,7 @@ log_info "=== Building Maximum-Likelihood Tree ==="
 # -gtr:          Use GTR model (more accurate than JC69)
 # -gamma:        Model gamma distribution of rates (accounting for site-to-site variation)
 # -quiet:        Minimal output
-# Additional performance: -mlnni 4 (ML nearest neighbor interchanges)
+# Additional performance: -mlnni 4 (ML nearest neighbour interchanges)
 
 FASTTREE_OPTS="-nt -gtr -gamma -quiet"
 
@@ -304,7 +304,7 @@ OUTPUTS:
   - phylo_metrics.txt (phylogenetic diversity)
   
 NEXT STAGE:
-  Proceed to 06-krona-viz.sh for interactive taxonomy visualization
+  Proceed to 06-krona-viz.sh for interactive taxonomy visualisation
 
 INTERPRETATION:
   Tree branch lengths represent evolutionary distance
