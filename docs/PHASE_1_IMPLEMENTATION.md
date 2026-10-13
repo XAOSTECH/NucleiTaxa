@@ -15,7 +15,7 @@
 - ✅ Added `--cuda-stages` for selective GPU acceleration (e.g., `--cuda-stages "03,05"`)
 - ✅ Auto-detection: Runs `nvidia-smi` to verify GPU availability, gracefully falls back to CPU
 - ✅ Enhanced logging with GPU status and execution times
-- ✅ Stage-by-stage execution with color-coded output
+- ✅ Stage-by-stage execution with colour-coded output
 
 **Usage Examples:**
 ```bash
@@ -95,7 +95,7 @@ cat test_benchmarks/results.csv
 | GPU Class | Expected Speedup | Notes |
 |-----------|------------------|-------|
 | RTX 2080  | 8-10x | Consumer GPU, good cost/performance |
-| A100      | 12-15x | Enterprise GPU, memory-optimized |
+| A100      | 12-15x | Enterprise GPU, memory-optimised |
 | H100      | 15-20x | Latest NVIDIA, peak performance |
 | **No GPU (CPU)** | **1.0x** | Baseline (4-6 threads) |
 
@@ -151,7 +151,7 @@ cat test_benchmarks/results.csv
 
 1. **bin/nucleitaxa** (+85 lines)
    - GPU detection and flag routing
-   - Enhanced logging with color codes
+   - Enhanced logging with colour codes
    - Resume capability for failed runs
 
 2. **pipeline/03-chimera-vsearch.sh** (+200 lines)
@@ -194,7 +194,7 @@ be07f7b [Main] Initial commit from cuda-expansion PR
 - Status: Requires R/CUDA expertise, potential academic collaboration
 - Alternative: Investigate cuDASH (if available)
 
-### Phase 4: WebGL GPU Acceleration for Visualization (2-4 weeks)
+### Phase 4: WebGL GPU Acceleration for Visualisation (2-4 weeks)
 - D3.js + Three.js WebGL rendering
 - GPU-accelerated taxonomy tree rendering
 - Support for 1M+ sequences in interactive view
