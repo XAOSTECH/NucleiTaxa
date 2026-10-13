@@ -3,10 +3,65 @@
     "repository": "NucleiTaxa",
     "current_branch": "main",
     "repo_url": "https://github.com/XAOSTECH/NucleiTaxa",
-    "generated": "2026-03-23T02:38:33Z",
+    "generated": "2026-03-30T02:51:08Z",
     "max_commits": 500
   },
   "commits": [
+  {
+    "sha": "baaf58a6d02b25cb42eaa8c7f8913ecec9a6938e",
+    "short": "baaf58a",
+    "parents": "47b418a959170329266ae20ea1c55f77c2b107ff",
+    "author": "dependabot[bot]",
+    "email": "49699333+dependabot[bot]@users.noreply.github.com",
+    "date": "2026-03-29T16:22:48Z",
+    "timestamp": 1774801368,
+    "subject": "deps(deps): bump XAOSTECH/dev-control",
+    "refs": "origin/dependabot/github_actions/XAOSTECH/dev-control-890484d6f30f98be7fa3b61ea2b8d3adc877a2d4"
+  },
+  {
+    "sha": "a2fa42864970e7c47db732296d293b922dba3d65",
+    "short": "a2fa428",
+    "parents": "47b418a959170329266ae20ea1c55f77c2b107ff 76e9b72fe594a3b52e68c084a3599f8bad91bd20",
+    "author": "github-actions[bot]",
+    "email": "41898282+github-actions[bot]@users.noreply.github.com",
+    "date": "2026-03-29T16:22:46Z",
+    "timestamp": 1774801366,
+    "subject": "Merge pull request #14 from XAOSTECH/dependabot/github_actions/actions/create-github-app-token-3",
+    "refs": "HEAD -> main, origin/main"
+  },
+  {
+    "sha": "76e9b72fe594a3b52e68c084a3599f8bad91bd20",
+    "short": "76e9b72",
+    "parents": "47b418a959170329266ae20ea1c55f77c2b107ff",
+    "author": "dependabot[bot]",
+    "email": "49699333+dependabot[bot]@users.noreply.github.com",
+    "date": "2026-03-29T16:22:30Z",
+    "timestamp": 1774801350,
+    "subject": "deps(deps): bump actions/create-github-app-token from 2 to 3",
+    "refs": ""
+  },
+  {
+    "sha": "47b418a959170329266ae20ea1c55f77c2b107ff",
+    "short": "47b418a",
+    "parents": "8fa06ba74d2447d9806a442b6a7745e06b16e495",
+    "author": "xaoscience",
+    "email": "69734795+xaoscience@users.noreply.github.com",
+    "date": "2026-03-23T17:54:19+01:00",
+    "timestamp": 1774284859,
+    "subject": "chore(dc-init): load workflows,actions",
+    "refs": ""
+  },
+  {
+    "sha": "8fa06ba74d2447d9806a442b6a7745e06b16e495",
+    "short": "8fa06ba",
+    "parents": "980f73be9d4bdbeb8397f82aeaf29d475613d9b9",
+    "author": "xaos-bot",
+    "email": "262248812+xaos-bot@users.noreply.github.com",
+    "date": "2026-03-23T02:38:33Z",
+    "timestamp": 1774233513,
+    "subject": "chore: update git tree visualisation",
+    "refs": ""
+  },
   {
     "sha": "980f73be9d4bdbeb8397f82aeaf29d475613d9b9",
     "short": "980f73b",
@@ -16,7 +71,7 @@
     "date": "2026-03-22T16:23:10Z",
     "timestamp": 1774196590,
     "subject": "Merge pull request #13 from XAOSTECH/dependabot/github_actions/actions/upload-artifact-7",
-    "refs": "HEAD -> main, origin/main"
+    "refs": ""
   },
   {
     "sha": "07aa05ac697365c7f98366637f169dbb2e31a215",
@@ -39,17 +94,6 @@
     "timestamp": 1774196566,
     "subject": "Merge pull request #11 from XAOSTECH/dependabot/github_actions/actions/create-github-app-token-3",
     "refs": ""
-  },
-  {
-    "sha": "6b1fd0daf7909ce3862af5797965309a319c7e80",
-    "short": "6b1fd0d",
-    "parents": "a90053bc425779089548fff41b9a9b53cea60108",
-    "author": "dependabot[bot]",
-    "email": "49699333+dependabot[bot]@users.noreply.github.com",
-    "date": "2026-03-22T16:22:43Z",
-    "timestamp": 1774196563,
-    "subject": "deps(deps): bump XAOSTECH/dev-control",
-    "refs": "origin/dependabot/github_actions/XAOSTECH/dev-control-e28642ed90425e0aa13ec5fde6c87b749677f121"
   },
   {
     "sha": "ef2f3e6ed5f2c51dd7c15e7f307a6af76ac51df0",
@@ -1406,7 +1450,7 @@
   }
 ],
   "branches": [
-  {"name":"980f73be9d4bdbeb8397f82aeaf29d475613d9b9 Merge pull request #13 from XAOSTECH/dependabot/github_actions/actions/upload-artifact-7","sha":"*","current":false,"merged":false}
+  {"name":"a2fa42864970e7c47db732296d293b922dba3d65 Merge pull request #14 from XAOSTECH/dependabot/github_actions/actions/create-github-app-token-3","sha":"*","current":false,"merged":false}
 ],
   "tags": [
 
