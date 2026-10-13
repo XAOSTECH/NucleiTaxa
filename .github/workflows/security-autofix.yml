@@ -18,6 +18,9 @@ permissions:
   pull-requests: write
   security-events: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   autofix:
     name: Auto-fix Security Alerts
@@ -32,7 +35,7 @@ jobs:
 
       - name: Generate security app token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.XSS_AI }}
           private-key: ${{ secrets.XSS_PK }}

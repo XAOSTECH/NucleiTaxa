@@ -28,6 +28,9 @@ permissions:
   statuses: read
   actions: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # Download and verify validation artifact
   verify:
@@ -213,7 +216,7 @@ jobs:
     steps:
       - name: Generate App Token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.XB_AI }}
           private-key: ${{ secrets.XB_PK }}
