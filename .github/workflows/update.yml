@@ -170,7 +170,7 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
 
       - name: Setup bot identity
-        uses: XAOSTECH/dev-control/.github/actions/identity@36d58407ebfb4ea31439818a87634315a0cebcad # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@99c3e9aab76604c6a046e205f1a8e0dcf53fe935 # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
