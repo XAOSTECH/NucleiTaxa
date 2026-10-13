@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Inspect PR author/labels
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PULL_NUMBERS: ${{ github.event.inputs.pull_numbers }}
         with:
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Merge PRs
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBERS: ${{ needs.guard.outputs.pr_numbers }}
         with:
