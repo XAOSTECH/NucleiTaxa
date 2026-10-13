@@ -23,13 +23,13 @@ jobs:
     steps:
       - name: Generate App Token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets['XB_AI'] }}
           private-key: ${{ secrets['XB_PK'] }}
 
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ steps.app_token.outputs.token }}
@@ -308,6 +308,9 @@ jobs:
             ! -path "./workflows-templates/anglicise.yml" \
             ! -path "./licence-templates/*" \
             ! -path "./LICENCE" \
+            ! -path "./LICENCE.md" \
+            ! -path "./LICENSE" \
+            ! -path "./LICENSE.md" \
             2>/dev/null | sort)
 
           is_workflow_file() {
@@ -417,6 +420,9 @@ jobs:
             ! -path "./workflows-templates/anglicise.yml" \
             ! -path "./licence-templates/*" \
             ! -path "./LICENCE" \
+            ! -path "./LICENCE.md" \
+            ! -path "./LICENSE" \
+            ! -path "./LICENSE.md" \
             2>/dev/null)
 
           is_workflow_file() {
@@ -541,7 +547,7 @@ jobs:
       - name: Setup bot identity (if fixes needed)
         id: import_gpg
         if: steps.check.outputs.needs_fix == 'true'
-        uses: XAOSTECH/dev-control/.github/actions/identity@379196e542149cc83181d41c9b173bc8eb197db8 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@b067f72ca7f849b734a45634f23581a739d5146f # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
