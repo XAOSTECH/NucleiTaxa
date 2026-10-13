@@ -49,7 +49,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -113,7 +113,7 @@ jobs:
 
       - name: Suggest fixes on PR
         if: github.event_name == 'pull_request' && (steps.shellcheck.outputs.errors > 0 || steps.shellcheck.outputs.warnings > 0)
-        uses: actions/github-script@v9
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -163,7 +163,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -174,14 +174,14 @@ jobs:
 
       - name: Generate security app token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets['XSS_AI'] }}
           private-key: ${{ secrets['XSS_PK'] }}
 
       - name: Setup bot identity for signing
         id: identity
-        uses: XAOSTECH/dev-control/.github/actions/identity@379196e542149cc83181d41c9b173bc8eb197db8 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@b067f72ca7f849b734a45634f23581a739d5146f # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
