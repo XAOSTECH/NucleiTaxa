@@ -136,7 +136,7 @@ jobs:
     steps:
       - name: Generate App Token
         id: app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets['XB_AI'] }}
           private-key: ${{ secrets['XB_PK'] }}
