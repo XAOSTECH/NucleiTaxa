@@ -20,7 +20,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Initialise CodeQL using repo config
         uses: github/codeql-action/init@v4
@@ -46,7 +46,7 @@ jobs:
       R_LIBS_USER: ${{ github.workspace }}/.cache/R/library
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Restore R library cache
         uses: actions/cache@v5
