@@ -148,7 +148,7 @@ jobs:
           private-key: ${{ secrets['XB_PK'] }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Full history for changelog generation
           # Use the app token so actions/checkout installs its credential helper
