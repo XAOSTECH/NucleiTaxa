@@ -10,7 +10,7 @@
 Do you have NVIDIA GPU?
     ├─ Yes, CUDA-capable (compute capability 3.0+)
     │   ├─ Consumer GPU (GTX 1080, RTX 2080, etc.) → 10-50x speedup
-    │   ├─ Data center (A100, H100) → 50-200x speedup
+    │   ├─ Data centre (A100, H100) → 50-200x speedup
     │   └─ Follow setup below
     │
     └─ No → Use CPU-only (default, fully supported)
@@ -140,7 +140,7 @@ vsearch --usearch_global test.fasta --db ref.fasta --id 0.85 --cuda
 
 ### Phase 3: FastTree GPU (Promising)
 - **Status:** FastTree 2.1.0+ supports GPU via OpenCL (partial)
-- **Alternative:** Use VeryFastTree (GPU-optimized phylogenetic inference)
+- **Alternative:** Use VeryFastTree (GPU-optimised phylogenetic inference)
   ```bash
   # Instead of FastTree 2
   veryfasttree -nt -fastest -input input.fasta -output tree.nwk
@@ -149,9 +149,9 @@ vsearch --usearch_global test.fasta --db ref.fasta --id 0.85 --cuda
 - **Implementation:** Add `--gpu-phylo` flag
 - **Timeline:** Q2 2026
 
-### Phase 4: WebGL Visualization (Client-side)
+### Phase 4: WebGL Visualisation (Client-side)
 - **Status:** D3.js + Three.js can leverage WebGL for GPU rendering
-- **Optimization:** Ren 1M+ points on interactive charts
+- **Optimisation:** Ren 1M+ points on interactive charts
 - **Tools:** Pixi.js, Babylon.js for WebGL acceleration
 - **Timeline:** Q3 2026
 
@@ -191,7 +191,7 @@ vsearch --usearch_global test.fasta --db ref.fasta --id 0.85 --cuda
 watch -n 0.5 nvidia-smi
 
 # During pipeline run, you should see:
-# nvidia-smi output showing utilization %
+# nvidia-smi output showing utilisation %
 ```
 
 ---
@@ -281,7 +281,7 @@ QIIME2 doesn't natively support GPU, but you can:
 
 1. Run NucleiTaxa with `--cuda` to get faster denoising/taxonomy
 2. Export results to QIIME2 format (already supported)
-3. Continue analysis in QIIME2 with CPU (GPU gains already realized)
+3. Continue analysis in QIIME2 with CPU (GPU gains already realised)
 
 ```bash
 # Fast GPU denoising + chimera removal
@@ -299,7 +299,7 @@ qiime tools import \
 
 **2025 Research:**
 - VSEARCH GPU: Edgar et al. (2023) - CUDA implementation in mainline
-- VeryFastTree: GPU-optimized phylogenetic inference (published 2024)
+- VeryFastTree: GPU-optimised phylogenetic inference (published 2024)
 - NVIDIA cuVS: 125x speedup for vector search (2025)
 
 **Tools:**
@@ -346,7 +346,7 @@ GPU acceleration is an active research area! Contributions welcome:
 
 - [ ] Implement DADA2 GPU kernels (CUDA/HIP)
 - [ ] Add VeryFastTree integration
-- [ ] Optimize WebGL rendering for 10M+ points
+- [ ] Optimise WebGL rendering for 10M+ points
 - [ ] Test on AMD GPUs (ROCm)
 - [ ] Performance profiling + benchmarks
 
@@ -358,7 +358,7 @@ GPU acceleration is an active research area! Contributions welcome:
 - ✅ VSEARCH GPU (done, native support)
 - 🔄 DADA2 GPU (research, experimental)
 - 🔄 VeryFastTree integration (ready to integrate)
-- 📊 WebGL-accelerated visualization (frontend optimization)
+- 📊 WebGL-accelerated visualisation (frontend optimisation)
 - 🔬 End-to-end GPU pipeline for 100M+ read datasets
 
 This is the bleeding-edge bioinformatics computing we're building! 🚀
