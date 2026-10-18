@@ -81,7 +81,7 @@ jobs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ====================================================================
       # CUSTOMISE: SDK/toolchain setup
