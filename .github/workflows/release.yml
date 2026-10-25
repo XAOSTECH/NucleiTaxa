@@ -166,7 +166,7 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
 
       - name: Setup bot identity
-        uses: XAOSTECH/dev-control/.github/actions/identity@efb468d45fea6e5fc6c9c52ee8de5dc1c753e483 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@8f5ce9bfaeca5d41d8b9110de549af38c25614b1 # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
@@ -491,7 +491,7 @@ jobs:
       - name: Setup bot identity (for signing)
         id: import_gpg
         if: github.event_name == 'workflow_dispatch'
-        uses: XAOSTECH/dev-control/.github/actions/identity@efb468d45fea6e5fc6c9c52ee8de5dc1c753e483 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@8f5ce9bfaeca5d41d8b9110de549af38c25614b1 # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
