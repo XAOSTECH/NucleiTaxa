@@ -181,7 +181,7 @@ jobs:
 
       - name: Setup bot identity for signing
         id: identity
-        uses: XAOSTECH/dev-control/.github/actions/identity@8f5ce9bfaeca5d41d8b9110de549af38c25614b1 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@e852959b07d8872128ab2b1855c620864eef18d0 # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
