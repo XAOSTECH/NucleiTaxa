@@ -547,7 +547,7 @@ jobs:
       - name: Setup bot identity (if fixes needed)
         id: import_gpg
         if: steps.check.outputs.needs_fix == 'true'
-        uses: XAOSTECH/dev-control/.github/actions/identity@e852959b07d8872128ab2b1855c620864eef18d0 # v2.0.0
+        uses: XAOSTECH/dev-control/.github/actions/identity@2c6bf8a80c8d34c4cc375a9ed7dd8b86efa3adde # v2.0.0
         with:
           gpg-private-key: ${{ secrets['XB_GK'] }}
           gpg-passphrase: ${{ secrets['XB_GP'] }}
